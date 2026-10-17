@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>修仙倖存者</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud">
+  <div id="slowfx"></div>
+  <div id="top">
+    <div class="pill big" id="h-life">壽元 30:00</div>
+    <div class="pill" id="h-realm">練氣 一層</div>
+    <div class="expbar"><div id="h-exp"></div><span id="h-exptxt"></span></div>
+    <div class="pill" id="h-stones">靈石 0</div>
+    <div class="pill" id="h-phase">妖潮</div>
+    <div class="pill" id="h-kills">斬妖 0</div>
+  </div>
+  <div id="left" class="panel"></div>
+  <div id="right" class="panel"></div>
+  <div id="prompt"></div>
+  <div id="state"></div>
+  <div id="choice" class="box hidden"></div>
+  <div id="shop" class="box hidden"></div>
+  <div id="toasts"></div>
+  <div id="help">WASD 移動 ｜ 空白 打坐(煉化靈石) ｜ Q 神識時緩 ｜ R 神識收寶 ｜ E 結伴 ｜ F 攻擊路人 ｜ 1/2/3 選擇 ｜ Z/X/C 宗門購買</div>
+  <div id="over" class="hidden"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
