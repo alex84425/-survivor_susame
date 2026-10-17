@@ -1,7 +1,7 @@
 // 修仙倖存者 — 主場景
 import {
   ELEMS, ELEM_CSS, ELEM_DARK, ELEM_HEX, OVERCOMES, elemMult, REALMS, GRADE_CN, PARTS,
-  SKILLS, SKILL_IDS, MAX_SKILLS, MAX_SKILL_LVL, ENEMY_TYPES, randName, randSectName, randGongfaName,
+  SKILLS, SKILL_IDS, MAX_SKILLS, MAX_SKILL_LVL, ENEMY_TYPES, BOSS_TYPES, spawnTable, IMAGES, randName, randSectName, randGongfaName,
 } from './data.js';
 import { Hud } from './ui.js';
 import { sfx, initAudio, toggleMute, toggleBgm, setIntensity } from './sfx.js';
@@ -21,68 +21,137 @@ const d2 = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by; return dx * d
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 // ---------- 貼圖 ----------
-function glyph(scene, key, ch, size, fill, stroke, font, textColor = '#fff') {
+function canvasTex(scene, key, w, h, draw) {
   if (scene.textures.exists(key)) return;
-  const t = scene.textures.createCanvas(key, size, size);
-  const c = t.getContext();
-  c.beginPath(); c.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
-  c.fillStyle = fill; c.fill(); c.lineWidth = 2; c.strokeStyle = stroke; c.stroke();
-  if (ch) {
-    c.fillStyle = textColor;
-    c.font = `bold ${font}px "Microsoft JhengHei","PingFang TC",sans-serif`;
-    c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(ch, size / 2, size / 2 + 1);
-  }
+  const t = scene.textures.createCanvas(key, w, h);
+  draw(t.getContext(), w, h);
   t.refresh();
+}
+
+function glyph(scene, key, ch, size, fill, stroke, font, textColor = '#fff') {
+  canvasTex(scene, key, size, size, c => {
+    c.beginPath(); c.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
+    c.fillStyle = fill; c.fill(); c.lineWidth = 2; c.strokeStyle = stroke; c.stroke();
+    if (ch) {
+      c.fillStyle = textColor;
+      c.font = `bold ${font}px "Microsoft JhengHei","PingFang TC",sans-serif`;
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(ch, size / 2, size / 2 + 1);
+    }
+  });
+}
+
+// 圓框 + 圖片；圖片沒載到時退回文字
+function portrait(scene, key, img, size, fill, stroke, ch, ring = 2) {
+  if (!scene.textures.exists('img_' + img)) return glyph(scene, key, ch, size, fill, stroke, Math.round(size * 0.55), stroke);
+  canvasTex(scene, key, size, size, c => {
+    if (fill) {
+      c.beginPath(); c.arc(size / 2, size / 2, size / 2 - ring, 0, Math.PI * 2);
+      c.fillStyle = fill; c.fill();
+      c.lineWidth = ring; c.strokeStyle = stroke; c.stroke();
+    }
+    const src = scene.textures.get('img_' + img).getSourceImage();
+    const pad = fill ? size * 0.12 : 0;
+    c.drawImage(src, pad, pad, size - pad * 2, size - pad * 2);
+  });
 }
 
 function blob(scene, key, w, h, color, glow = true) {
-  if (scene.textures.exists(key)) return;
-  const t = scene.textures.createCanvas(key, w, h);
-  const c = t.getContext();
-  const g = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) / 2);
-  g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, color); g.addColorStop(1, glow ? 'rgba(0,0,0,0)' : color);
-  c.fillStyle = g; c.beginPath(); c.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); c.fill();
-  t.refresh();
+  canvasTex(scene, key, w, h, c => {
+    const g = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) / 2);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, color); g.addColorStop(1, glow ? 'rgba(0,0,0,0)' : color);
+    c.fillStyle = g; c.beginPath(); c.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); c.fill();
+  });
+}
+
+// 各種投射物（皆以朝右為正方向繪製）
+function makeProjectiles(scene, e) {
+  const col = ELEM_CSS[e];
+  // 飛劍
+  canvasTex(scene, `sw_${e}`, 36, 10, (c, w, h) => {
+    c.shadowColor = col; c.shadowBlur = 4;
+    const g = c.createLinearGradient(10, 0, w, 0); g.addColorStop(0, col); g.addColorStop(1, '#ffffff');
+    c.fillStyle = g; c.beginPath(); c.moveTo(w - 1, h / 2); c.lineTo(11, 2); c.lineTo(11, h - 2); c.closePath(); c.fill();
+    c.fillStyle = col; c.fillRect(8, 0, 3, h); c.fillRect(1, h / 2 - 1.5, 7, 3);
+  });
+  // 藤葉
+  canvasTex(scene, `leaf_${e}`, 22, 12, (c, w, h) => {
+    c.fillStyle = col; c.beginPath(); c.moveTo(0, h / 2);
+    c.quadraticCurveTo(w / 2, -3, w, h / 2); c.quadraticCurveTo(w / 2, h + 3, 0, h / 2); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 1; c.beginPath(); c.moveTo(2, h / 2); c.lineTo(w - 3, h / 2); c.stroke();
+  });
+  // 冰稜
+  canvasTex(scene, `ice_${e}`, 26, 10, (c, w, h) => {
+    c.fillStyle = col; c.beginPath(); c.moveTo(w, h / 2); c.lineTo(8, 0); c.lineTo(0, h / 2); c.lineTo(8, h); c.closePath(); c.fill();
+    c.fillStyle = '#e8f6ff'; c.beginPath(); c.moveTo(w - 3, h / 2); c.lineTo(9, 3); c.lineTo(4, h / 2); c.lineTo(9, h - 3); c.closePath(); c.fill();
+  });
+  // 火球（亮核心 + 外焰）
+  canvasTex(scene, `fire_${e}`, 22, 22, (c, w, h) => {
+    const g = c.createRadialGradient(w / 2 + 3, h / 2, 1, w / 2, h / 2, w / 2);
+    g.addColorStop(0, '#fffbe0'); g.addColorStop(0.3, '#ffd24a'); g.addColorStop(0.65, col); g.addColorStop(1, 'rgba(255,60,0,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2); c.fill();
+  });
+  // 符籙（路人、宗門用）
+  canvasTex(scene, `fu_${e}`, 18, 10, (c, w, h) => {
+    c.shadowColor = col; c.shadowBlur = 3;
+    c.fillStyle = '#f3d77a'; c.fillRect(1, 1, w - 2, h - 2);
+    c.strokeStyle = col; c.lineWidth = 1.5; c.strokeRect(1, 1, w - 2, h - 2);
+    c.strokeStyle = '#c0202a'; c.lineWidth = 1.2; c.beginPath();
+    c.moveTo(4, h / 2); c.lineTo(7, 3); c.lineTo(10, h - 3); c.lineTo(13, 3); c.lineTo(15, h / 2); c.stroke();
+  });
+  // 妖王彈幕（暗核亮邊）
+  canvasTex(scene, `bb_${e}`, 18, 18, (c, w, h) => {
+    const g = c.createRadialGradient(w / 2, h / 2, 1, w / 2, h / 2, w / 2);
+    g.addColorStop(0, '#1a0010'); g.addColorStop(0.55, '#3a0a20'); g.addColorStop(0.75, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2); c.fill();
+  });
+  blob(scene, `p_${e}`, 16, 16, col);
 }
 
 function makeTextures(scene) {
-  if (!scene.textures.exists('bgtile')) {
-    const t = scene.textures.createCanvas('bgtile', 128, 128);
-    const c = t.getContext();
+  canvasTex(scene, 'bgtile', 128, 128, c => {
     c.fillStyle = '#12151c'; c.fillRect(0, 0, 128, 128);
     c.strokeStyle = '#1a1e28'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, 128, 128);
     c.fillStyle = '#1d2230';
     for (let i = 0; i < 6; i++) c.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
-    t.refresh();
-  }
-  glyph(scene, 'player', '修', 34, '#f4ecd8', '#ffd98a', 20, '#1b1b22');
+  });
+  portrait(scene, 'player', 'mage', 44, 'rgba(40,34,20,.85)', '#ffd98a', '修', 3);
   for (const e of ELEMS) {
     for (const [type, T] of Object.entries(ENEMY_TYPES)) {
-      const size = T.r * 2 + 4;
-      glyph(scene, `e_${type}_${e}`, T.ch, size, ELEM_DARK[e], ELEM_CSS[e], Math.round(T.r * 1.15), ELEM_CSS[e]);
+      const size = Math.round(T.r * 2.5 + 6);
+      portrait(scene, `e_${type}_${e}`, T.img, size, ELEM_DARK[e] + 'cc', ELEM_CSS[e], T.ch, T.boss ? 3.5 : 2);
     }
-    blob(scene, `p_${e}`, 16, 16, ELEM_CSS[e]);
-    blob(scene, `sw_${e}`, 26, 8, ELEM_CSS[e]);
-    blob(scene, `fp_${e}`, 14, 14, ELEM_CSS[e]);
-    glyph(scene, `pb_${e}`, '人', 30, '#e8e4d8', ELEM_CSS[e], 17, ELEM_DARK[e]);
-    glyph(scene, `sect_${e}`, '宗', 60, ELEM_DARK[e], ELEM_CSS[e], 32, ELEM_CSS[e]);
-    glyph(scene, `dan_${e}`, '丹', 18, '#5a1020', ELEM_CSS[e], 11, ELEM_CSS[e]);
-    glyph(scene, `mat_${e}`, '材', 18, '#222', ELEM_CSS[e], 11, ELEM_CSS[e]);
+    makeProjectiles(scene, e);
+    portrait(scene, `pb_${e}`, 'fencer', 36, '#e8e4d8cc', ELEM_CSS[e], '人', 2.5);
+    portrait(scene, `sect_${e}`, 'shrine', 76, ELEM_DARK[e] + 'dd', ELEM_CSS[e], '宗', 3);
+    portrait(scene, `dan_${e}`, 'pill', 22, '#00000088', ELEM_CSS[e], '丹');
+    portrait(scene, `mat_${e}`, 'bone', 22, '#00000088', ELEM_CSS[e], '材');
   }
+  // 毒液
+  canvasTex(scene, 'venom', 16, 16, (c, w, h) => {
+    const g = c.createRadialGradient(w / 2, h / 2, 1, w / 2, h / 2, w / 2);
+    g.addColorStop(0, '#eaffb0'); g.addColorStop(0.4, '#8be02c'); g.addColorStop(0.8, '#7a2cc0'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(w / 2, h / 2, w / 2, 0, Math.PI * 2); c.fill();
+  });
   blob(scene, 'foe', 14, 14, '#c040ff');
-  if (!scene.textures.exists('stone')) {
-    const t = scene.textures.createCanvas('stone', 10, 12);
-    const c = t.getContext();
-    c.fillStyle = '#7fffe0'; c.beginPath(); c.moveTo(5, 0); c.lineTo(10, 6); c.lineTo(5, 12); c.lineTo(0, 6); c.closePath(); c.fill();
-    t.refresh();
-  }
-  glyph(scene, 'scroll', '卷', 22, '#5a4a1a', '#ffd98a', 13, '#ffd98a');
+  portrait(scene, 'stone', 'gem', 14, null, null, '石');
+  portrait(scene, 'scroll', 'scroll', 26, null, null, '卷');
+  // 落石
+  canvasTex(scene, 'rock', 40, 36, (c, w, h) => {
+    c.fillStyle = '#8a6136'; c.strokeStyle = '#3d2a12'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(6, 10); c.lineTo(18, 2); c.lineTo(32, 6); c.lineTo(38, 20); c.lineTo(28, 34); c.lineTo(10, 32); c.lineTo(2, 20); c.closePath();
+    c.fill(); c.stroke();
+    c.fillStyle = '#b08350'; c.beginPath(); c.moveTo(10, 11); c.lineTo(18, 6); c.lineTo(26, 9); c.lineTo(18, 15); c.closePath(); c.fill();
+  });
 }
 
 // ---------- 場景 ----------
 class Main extends Phaser.Scene {
   constructor() { super('main'); }
+
+  preload() {
+    for (const k of IMAGES) if (!this.textures.exists('img_' + k)) this.load.image('img_' + k, `assets/img/${k}.png`);
+  }
 
   create() {
     makeTextures(this);
@@ -107,6 +176,7 @@ class Main extends Phaser.Scene {
     this.trib = null; this.over = false; this.idSeq = 1; this.craftReserve = 0;
     this.phaseOrder = shuffle([...ELEMS]); this.phaseIdx = -1;
 
+    this.parts = [];
     this.dmgTexts = [];
     for (let i = 0; i < 40; i++) {
       this.dmgTexts.push(this.add.text(0, 0, '', { fontFamily: 'Microsoft JhengHei', fontSize: '13px', color: '#fff', stroke: '#000', strokeThickness: 3 }).setDepth(8).setVisible(false).setOrigin(0.5));
@@ -195,6 +265,7 @@ class Main extends Phaser.Scene {
     this.updatePlayer(dt);
     this.updateChoice(dt);
     this.draw();
+    this.updateParts(dt);
     this.updateDmgTexts(dt);
     if (this.over) return;
 
@@ -284,8 +355,9 @@ class Main extends Phaser.Scene {
     const bi = Math.floor(this.gm / 5);
     if (bi > this.bossCount) {
       this.bossCount = bi;
-      this.spawnEnemy('boss');
-      this.hud.toast(`<b style="color:#e05555">妖王</b>現世！`, '#e05555');
+      const bt = pick(BOSS_TYPES);
+      this.spawnEnemy(bt);
+      this.hud.toast(`妖王 <b style="color:#e05555">${ENEMY_TYPES[bt].name}</b> 現世！`, '#e05555');
       sfx.roar();
     }
   }
@@ -293,16 +365,18 @@ class Main extends Phaser.Scene {
   spawnEnemy(type, at) {
     const gm = this.gm, P = this.P;
     if (!type) {
-      const r = Math.random();
-      type = gm < 2 ? (r < 0.85 ? 'imp' : 'wolf') : r < 0.5 ? 'imp' : r < 0.72 ? 'wolf' : r < 0.88 ? 'spit' : 'bear';
+      const tab = spawnTable(gm);
+      let r = Math.random() * tab.reduce((a, t) => a + t[1], 0);
+      type = tab[tab.length - 1][0];
+      for (const [k, w] of tab) { r -= w; if (r <= 0) { type = k; break; } }
     }
     const T = ENEMY_TYPES[type];
-    const elem = at ? at.elem : type === 'boss' || Math.random() < 0.6 ? this.phaseElem : pick(ELEMS);
+    const elem = at ? at.elem : T.boss || Math.random() < 0.6 ? this.phaseElem : pick(ELEMS);
     const a = rand(0, Math.PI * 2), R = rand(650, 820);
     const x = clamp(at ? at.x : P.x + Math.cos(a) * R, 20, WORLD - 20), y = clamp(at ? at.y : P.y + Math.sin(a) * R, 20, WORLD - 20);
     const hp = T.hp * (1 + gm * 0.25 + gm * gm * 0.02);
     this.enemies.push({
-      type, elem, x, y, r: T.r, hp, maxHp: hp, boss: !!T.boss,
+      type, elem, x, y, r: T.r, hp, maxHp: hp, boss: !!T.boss, charger: !!T.charger, face: T.face || 0,
       speed: T.speed * rand(0.9, 1.1) * (1 + gm * 0.01), dmg: T.dmg * (1 + gm * 0.08),
       realm: Math.min(4, Math.floor(gm / 6)) + (T.boss ? 1 : 0),
       touchCd: 0, slowT: 0, slowF: 1, kx: 0, ky: 0, flash: 0, target: null, retarget: rand(0, 0.5), shootT: rand(1, 3),
@@ -379,7 +453,7 @@ class Main extends Phaser.Scene {
       const tg = e.target;
       const dx = tg.x - e.x, dy = tg.y - e.y, d = Math.hypot(dx, dy) || 1;
       let mv = e.speed * ts * dt, mx = dx / d, my = dy / d, dashing = false;
-      if (e.boss || e.type === 'bear') {
+      if (e.boss || e.charger) {
         const o = this.updateSpecial(e, dt * ts, tg, d);
         if (o) { mv = o.mv; mx = o.mx; my = o.my; dashing = !!o.dash; }
       }
@@ -388,7 +462,10 @@ class Main extends Phaser.Scene {
         e.shootT -= dt * ts;
         if (e.shootT <= 0 && d < 420 && tg === P) {
           e.shootT = 3;
-          this.shoot({ team: 'foe', x: e.x, y: e.y, ang: Math.atan2(dy, dx), speed: 230, dmg: e.dmg, elem: e.elem, life: 3, r: 6, tex: 'foe', realm: e.realm });
+          const ang = Math.atan2(dy, dx), shot = ENEMY_TYPES[e.type].shot;
+          if (shot === 'spread') for (const o of [-0.25, 0, 0.25]) this.shoot({ team: 'foe', x: e.x, y: e.y, ang: ang + o, speed: 210, dmg: e.dmg * 0.7, elem: e.elem, life: 3, r: 6, tex: 'venom', realm: e.realm, spin: 8 });
+          else if (shot === 'orb') this.shoot({ team: 'foe', x: e.x, y: e.y, ang, speed: 320, dmg: e.dmg, elem: e.elem, life: 2.5, r: 6, tex: `bb_${e.elem}`, realm: e.realm, trail: ELEM_HEX[e.elem] });
+          else this.shoot({ team: 'foe', x: e.x, y: e.y, ang, speed: 230, dmg: e.dmg, elem: e.elem, life: 3, r: 6, tex: 'venom', realm: e.realm, trail: 0x8be02c });
         }
       }
       e.x += mx * mv + e.kx * dt;
@@ -418,6 +495,7 @@ class Main extends Phaser.Scene {
         this.hitTarget(tg, e.dmg * (dashing ? 1.6 : 1), e.elem);
       }
       e.sprite.setPosition(e.x, e.y);
+      if (e.face && Math.abs(mx) > 0.2 && mv > 0) e.sprite.setFlipX(mx * e.face < 0);
       if (e.flash > 0) { e.flash -= dt; if (e.flash <= 0) e.sprite.clearTint(); }
     }
     if (this.enemies.some(e => e.hp <= 0)) this.enemies = this.enemies.filter(e => e.hp > 0);
@@ -460,7 +538,7 @@ class Main extends Phaser.Scene {
           a.next = 0.35; a.waves--;
           const n = 16 + Math.floor(this.gm / 3);
           for (let i = 0; i < n; i++) {
-            this.shoot({ team: 'foe', x: e.x, y: e.y, ang: (i + a.waves * 0.5) / n * Math.PI * 2, speed: 210, dmg: e.dmg * 0.5, elem: e.elem, life: 4, r: 7, tex: `fp_${e.elem}`, realm: e.realm });
+            this.shoot({ team: 'foe', x: e.x, y: e.y, ang: (i + a.waves * 0.5) / n * Math.PI * 2, speed: 210, dmg: e.dmg * 0.5, elem: e.elem, life: 4, r: 7, tex: `bb_${e.elem}`, realm: e.realm });
           }
           sfx.barrage();
         }
@@ -470,7 +548,7 @@ class Main extends Phaser.Scene {
         if (a.t <= 0) {
           for (let i = 0; i < 6; i++) {
             const ang = i / 6 * Math.PI * 2;
-            this.spawnEnemy(pick(['imp', 'wolf']), { x: e.x + Math.cos(ang) * 60, y: e.y + Math.sin(ang) * 60, elem: e.elem });
+            this.spawnEnemy(pick(['imp', 'wolf', 'bat']), { x: e.x + Math.cos(ang) * 60, y: e.y + Math.sin(ang) * 60, elem: e.elem });
           }
           e.act = null;
         }
@@ -531,6 +609,7 @@ class Main extends Phaser.Scene {
     if (e.sprite && !e.isPb) { e.flash = 0.06; e.sprite.setTintFill(0xffffff); }
     this.dmgText(e.x, e.y - e.r, dmg, m);
     sfx.hit();
+    this.burst(e.x, e.y, elem ? ELEM_HEX[elem] : 0xffffff, 2, 140, 2, 0.25);
     if (opt.slow) { e.slowT = opt.slow; e.slowF = opt.slowF || 0.5; }
     if (opt.kb && !e.boss && !e.isPb) {
       const a = Math.atan2(e.y - opt.ky, e.x - opt.kx);
@@ -545,6 +624,7 @@ class Main extends Phaser.Scene {
     e.sprite.destroy();
     P.kills++;
     sfx.kill();
+    this.burst(e.x, e.y, ELEM_HEX[e.elem], e.boss ? 50 : 7, e.boss ? 320 : 170, e.boss ? 4 : 2.5, e.boss ? 0.9 : 0.4);
     this.spawnDrop('stone', e.x, e.y, { value: T.stone * (1 + this.gm * 0.12) });
     const dr = 1 + this.dropRate();
     if (e.boss || Math.random() < 0.015 * dr) this.spawnDrop('dan', e.x, e.y, { elem: e.elem });
@@ -580,7 +660,7 @@ class Main extends Phaser.Scene {
       case 'gengjin': {
         if (!tg) return false;
         const n = 1 + Math.floor(L / 3);
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.12, speed: 620, dmg, elem, pierce: 2 + Math.floor(L / 2), life: 1.1, r: 7, tex: `sw_${elem}` });
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.12, speed: 620, dmg, elem, pierce: 2 + Math.floor(L / 2), life: 1.1, r: 7, tex: `sw_${elem}`, trail: ELEM_HEX[elem] });
         return true;
       }
       case 'wanjian': {
@@ -591,7 +671,7 @@ class Main extends Phaser.Scene {
       case 'qingteng': {
         if (!tg) return false;
         const n = 1 + Math.floor(L / 4);
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + rand(-0.5, 0.5), speed: 340, dmg, elem, pierce: 1 + Math.floor(L / 3), life: 2.2, r: 8, homing: true, slow: 1.5, slowF: 0.45 });
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + rand(-0.5, 0.5), speed: 340, dmg, elem, pierce: 1 + Math.floor(L / 3), life: 2.2, r: 8, homing: true, slow: 1.5, slowF: 0.45, tex: `leaf_${elem}`, trail: 0x5cc96b });
         return true;
       }
       case 'wanmu': {
@@ -604,7 +684,7 @@ class Main extends Phaser.Scene {
       case 'xuanbing': {
         if (!tg) return false;
         const n = 2 + Math.floor(L / 3);
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.18, speed: 480, dmg, elem, pierce: 1, life: 1.1, r: 7, slow: 1.5, slowF: 0.5 });
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.18, speed: 480, dmg, elem, pierce: 1, life: 1.1, r: 7, slow: 1.5, slowF: 0.5, tex: `ice_${elem}`, trail: 0xbfe8ff });
         return true;
       }
       case 'hanchao':
@@ -613,7 +693,7 @@ class Main extends Phaser.Scene {
       case 'huoqiu': {
         if (!tg) return false;
         const n = 1 + Math.floor(L / 4);
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + i * 0.25, speed: 420, dmg, elem, pierce: 0, life: 1.4, r: 9, explode: 48 + L * 6 });
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + i * 0.25, speed: 420, dmg, elem, pierce: 0, life: 1.4, r: 9, explode: 48 + L * 6, tex: `fire_${elem}`, trail: 0xff8a2a, spin: 10 });
         return true;
       }
       case 'fentian': {
@@ -632,13 +712,16 @@ class Main extends Phaser.Scene {
         let cands = this.query(P.x, P.y, 450).sort((a, b) => b.hp - a.hp);
         for (let i = 0; i < n; i++) {
           const c = cands[i] || tg;
-          this.areas.push({ kind: 'drop', x: c.x, y: c.y, R: 45 + L * 4, delay: 0.55, max: 0.55, dmg, elem, color: ELEM_HEX[elem] });
+          const R = 45 + L * 4;
+          const rock = this.add.image(c.x, c.y - 240, 'rock').setDepth(5).setScale(R / 40);
+          this.areas.push({ kind: 'drop', x: c.x, y: c.y, R, delay: 0.55, max: 0.55, dmg, elem, color: ELEM_HEX[elem], rock });
         }
         return true;
       }
       case 'dilie': {
         const R = 110 + L * 12;
         this.areaHit(P.x, P.y, R, e => this.hurt(e, dmg, elem, { kb: 420, kx: P.x, ky: P.y }));
+        for (let i = 0; i < 24; i++) { const ang = i / 24 * Math.PI * 2; this.addPart(P.x + Math.cos(ang) * 20, P.y + Math.sin(ang) * 20, Math.cos(ang) * R * 2.2, Math.sin(ang) * R * 2.2, pick([0x8a6136, 0xc08a4a, 0x5a3d1e]), 3.5, 0.45); }
         this.areas.push({ kind: 'flash', x: P.x, y: P.y, R, life: 0.3, max: 0.3, color: ELEM_HEX[elem] });
         return true;
       }
@@ -676,6 +759,11 @@ class Main extends Phaser.Scene {
       }
       p.x += p.vx * dt * ts; p.y += p.vy * dt * ts;
       p.sprite.setPosition(p.x, p.y);
+      if (p.spin) p.sprite.rotation += p.spin * dt * ts;
+      if (p.trail) {
+        p.trT = (p.trT || 0) - dt;
+        if (p.trT <= 0) { p.trT = 0.02; this.addPart(p.x, p.y, rand(-15, 15), rand(-15, 15), p.trail, p.r * 0.55, 0.22); }
+      }
       if (p.team === 'foe') {
         if (d2(p.x, p.y, P.x, P.y) < (P.r + p.r) ** 2) { this.damagePlayer(p.dmg); p.dead = true; }
       } else {
@@ -705,13 +793,16 @@ class Main extends Phaser.Scene {
       switch (a.kind) {
         case 'ring':
           a.r += a.spd * dt;
+          for (let i = 0; i < 4; i++) { const ang = rand(0, Math.PI * 2); this.addPart(a.x + Math.cos(ang) * a.r, a.y + Math.sin(ang) * a.r, 0, 0, pick([0xbfe8ff, 0xffffff, a.color]), 2.5, 0.35); }
           for (const e of this.query(a.x, a.y, a.r)) if (!a.hit.has(e)) { a.hit.add(e); this.hurt(e, a.dmg, a.elem, { slow: a.slow }); }
           for (const p of this.hostilePbs()) if (!a.hit.has(p) && d2(p.x, p.y, a.x, a.y) < a.r * a.r) { a.hit.add(p); this.hurt(p, a.dmg, a.elem); }
           if (a.r >= a.maxR) a.dead = true;
           break;
         case 'drop':
           a.delay -= dt;
+          if (a.rock) a.rock.setPosition(a.x, a.y - 240 * Math.max(0, a.delay / a.max)).setRotation(a.delay * 6);
           if (a.delay <= 0) {
+            if (a.rock) { a.rock.destroy(); this.burst(a.x, a.y, 0x8a6136, 14, 260, 3, 0.5); sfx.slam(); }
             this.areaHit(a.x, a.y, a.R, e => this.hurt(e, a.dmg, a.elem));
             this.areas.push({ kind: 'flash', x: a.x, y: a.y, R: a.R, life: 0.25, max: 0.25, color: a.color });
             a.dead = true;
@@ -720,6 +811,7 @@ class Main extends Phaser.Scene {
         case 'zone':
           a.life -= dt; a.tickT -= dt;
           if (a.tickT <= 0) { a.tickT = 0.4; this.areaHit(a.x, a.y, a.R, e => this.hurt(e, a.dmg, a.elem)); }
+          if (Math.random() < 0.6) { const ang = rand(0, Math.PI * 2), rr = rand(0, a.R); this.addPart(a.x + Math.cos(ang) * rr, a.y + Math.sin(ang) * rr, rand(-10, 10), rand(-90, -40), pick([0xff6a3d, 0xffd24a, 0xff3a1a]), rand(2, 4), 0.6); }
           if (a.life <= 0) a.dead = true;
           break;
         case 'lightning':
@@ -813,7 +905,7 @@ class Main extends Phaser.Scene {
         }
         if (tg && pb.atkT <= 0) {
           pb.atkT = 0.8;
-          this.shoot({ team: 'ally', x: pb.x, y: pb.y, ang: Math.atan2(tg.y - pb.y, tg.x - pb.x), speed: 420, dmg: pb.dmg, elem: pb.elem, life: 1.2, r: 7, pierce: 0, tex: `fp_${pb.elem}` });
+          this.shoot({ team: 'ally', x: pb.x, y: pb.y, ang: Math.atan2(tg.y - pb.y, tg.x - pb.x), speed: 420, dmg: pb.dmg, elem: pb.elem, life: 1.2, r: 7, pierce: 0, tex: `fu_${pb.elem}`, spin: 6 });
         }
       } else if (pb.state === 'hostile') {
         const dx = P.x - pb.x, dy = P.y - pb.y, d = Math.hypot(dx, dy) || 1;
@@ -823,7 +915,7 @@ class Main extends Phaser.Scene {
         sp *= ts;
         if (pb.atkT <= 0 && d < 450) {
           pb.atkT = 1.1 / Math.max(ts, 0.2);
-          this.shoot({ team: 'foe', x: pb.x, y: pb.y, ang: Math.atan2(dy, dx), speed: 300, dmg: pb.dmg, elem: pb.elem, life: 2, r: 6, tex: `fp_${pb.elem}`, realm: pb.realm });
+          this.shoot({ team: 'foe', x: pb.x, y: pb.y, ang: Math.atan2(dy, dx), speed: 300, dmg: pb.dmg, elem: pb.elem, life: 2, r: 6, tex: `fu_${pb.elem}`, realm: pb.realm, spin: 6 });
         }
         // 躲招
         if (pb.dodgeCd <= 0) {
@@ -966,7 +1058,7 @@ class Main extends Phaser.Scene {
         const tg = this.nearestEnemyOnly(s.x, s.y, 300);
         if (tg) {
           s.atkT = 0.9;
-          this.shoot({ team: 'ally', x: s.x, y: s.y, ang: Math.atan2(tg.y - s.y, tg.x - s.x), speed: 450, dmg: s.dmg, elem: s.elem, life: 1, r: 8, pierce: 1, tex: `fp_${s.elem}` });
+          this.shoot({ team: 'ally', x: s.x, y: s.y, ang: Math.atan2(tg.y - s.y, tg.x - s.x), speed: 450, dmg: s.dmg, elem: s.elem, life: 1, r: 8, pierce: 1, tex: `fu_${s.elem}`, trail: ELEM_HEX[s.elem] });
         }
       }
       s.hp = Math.min(s.maxHp, s.hp + s.maxHp * 0.005 * dt);
@@ -1243,7 +1335,12 @@ class Main extends Phaser.Scene {
     if (P.meditating) u.fillStyle(0x7fffe0, 0.12).fillCircle(P.x, P.y, 30);
     for (const a of this.areas) {
       switch (a.kind) {
-        case 'zone': u.fillStyle(a.color, 0.22 * Math.min(1, a.life)).fillCircle(a.x, a.y, a.R); break;
+        case 'zone': {
+          const k = Math.min(1, a.life);
+          u.fillStyle(a.color, 0.18 * k).fillCircle(a.x, a.y, a.R);
+          u.fillStyle(0xffd24a, (0.1 + 0.08 * Math.sin(this.t * 25 + a.x)) * k).fillCircle(a.x, a.y, a.R * 0.6);
+          break;
+        }
         case 'ring': f.lineStyle(4, a.color, 0.7).strokeCircle(a.x, a.y, a.r); break;
         case 'drop': f.lineStyle(2, a.color, 0.8).strokeCircle(a.x, a.y, a.R).fillStyle(a.color, 0.25 * (1 - a.delay / a.max)).fillCircle(a.x, a.y, a.R); break;
         case 'foeslam': f.lineStyle(3, 0xff3030, 0.9).strokeCircle(a.x, a.y, a.R).fillStyle(0xff3030, 0.35 * (1 - a.delay / a.max)).fillCircle(a.x, a.y, a.R); break;
@@ -1251,6 +1348,7 @@ class Main extends Phaser.Scene {
         case 'flash': f.fillStyle(a.color, 0.35 * a.life / a.max).fillCircle(a.x, a.y, a.R); break;
       }
     }
+    for (const p of this.parts) f.fillStyle(p.color, p.life / p.max).fillCircle(p.x, p.y, p.size * (0.4 + 0.6 * p.life / p.max));
     // 護盾
     if (P.shield > 0) f.lineStyle(2, 0x3aa7c7, 0.25 + 0.5 * P.shield / P.maxShield).strokeCircle(P.x, P.y, 20);
     // 路人血條
@@ -1259,7 +1357,7 @@ class Main extends Phaser.Scene {
       this.hpBar(f, pb.x, pb.y + 20, 34, pb.hp / pb.maxHp, col);
     }
     for (const e of this.enemies) {
-      if (!e.boss && e.type !== 'bear') continue;
+      if (!e.boss && !e.charger) continue;
       this.hpBar(f, e.x, e.y + e.r + 5, e.r * 2, e.hp / e.maxHp, 0xe05555);
       // 衝鋒預警
       if (e.act && e.act.kind === 'charge' && e.act.phase === 'wind') {
@@ -1276,6 +1374,27 @@ class Main extends Phaser.Scene {
   hpBar(g, x, y, w, frac, color) {
     g.fillStyle(0x000000, 0.6).fillRect(x - w / 2, y, w, 4);
     g.fillStyle(color, 1).fillRect(x - w / 2, y, w * clamp(frac, 0, 1), 4);
+  }
+
+  addPart(x, y, vx, vy, color, size, life) {
+    if (this.parts.length > 700) return;
+    this.parts.push({ x, y, vx, vy, color, size, life, max: life });
+  }
+
+  burst(x, y, color, n, speed, size, life) {
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, Math.PI * 2), v = rand(0.3, 1) * speed;
+      this.addPart(x, y, Math.cos(a) * v, Math.sin(a) * v, color, size, life * rand(0.6, 1));
+    }
+  }
+
+  updateParts(dt) {
+    const drag = Math.pow(0.04, dt);
+    for (const p of this.parts) {
+      p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= drag; p.vy *= drag;
+    }
+    this.parts = this.parts.filter(p => p.life > 0);
   }
 
   dmgText(x, y, dmg, m) {

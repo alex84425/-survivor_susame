@@ -38,13 +38,41 @@ export const SKILL_IDS = Object.keys(SKILLS);
 export const MAX_SKILLS = 6;
 export const MAX_SKILL_LVL = 8;
 
+// img：assets/img 下的圖片；face：圖片原本朝向（-1 朝左、1 朝右），用來決定是否翻轉
+// ranged：遠程（shot 決定彈種）；charger：會衝鋒
+const BOSS = { r: 36, hp: 900, speed: 62, dmg: 25, stone: 80, boss: true };
 export const ENEMY_TYPES = {
-  imp:  { name: '小妖', ch: '妖', r: 12, hp: 18,  speed: 72,  dmg: 6,  stone: 1 },
-  wolf: { name: '妖狼', ch: '狼', r: 13, hp: 14,  speed: 125, dmg: 7,  stone: 1 },
-  spit: { name: '毒蛛', ch: '蛛', r: 14, hp: 28,  speed: 58,  dmg: 8,  stone: 2, ranged: true },
-  bear: { name: '妖熊', ch: '熊', r: 20, hp: 85,  speed: 52,  dmg: 14, stone: 4 },
-  boss: { name: '妖王', ch: '王', r: 36, hp: 900, speed: 62,  dmg: 25, stone: 80, boss: true },
+  bat:   { name: '蝠妖',   ch: '蝠', img: 'bat',       r: 12, hp: 13,  speed: 100, dmg: 5,  stone: 1, face: -1 },
+  imp:   { name: '小鬼',   ch: '鬼', img: 'goblin',    r: 12, hp: 18,  speed: 72,  dmg: 6,  stone: 1 },
+  wolf:  { name: '妖狼',   ch: '狼', img: 'wolf',      r: 13, hp: 16,  speed: 125, dmg: 7,  stone: 1 },
+  fox:   { name: '狐妖',   ch: '狐', img: 'fox',       r: 13, hp: 20,  speed: 112, dmg: 7,  stone: 1 },
+  spit:  { name: '毒蛛',   ch: '蛛', img: 'spider',    r: 14, hp: 28,  speed: 58,  dmg: 8,  stone: 2, ranged: true, shot: 'venom' },
+  snake: { name: '蛇妖',   ch: '蛇', img: 'snake',     r: 14, hp: 30,  speed: 78,  dmg: 8,  stone: 2, ranged: true, shot: 'orb' },
+  scorp: { name: '蠍妖',   ch: '蠍', img: 'scorpion',  r: 15, hp: 42,  speed: 55,  dmg: 9,  stone: 2, ranged: true, shot: 'spread' },
+  boar:  { name: '豬妖',   ch: '豬', img: 'boar',      r: 17, hp: 60,  speed: 70,  dmg: 11, stone: 3, charger: true, face: -1 },
+  croc:  { name: '鱷妖',   ch: '鱷', img: 'crocodile', r: 18, hp: 75,  speed: 58,  dmg: 12, stone: 3, charger: true },
+  bear:  { name: '妖熊',   ch: '熊', img: 'bear',      r: 20, hp: 85,  speed: 52,  dmg: 14, stone: 4, charger: true },
+  ogre:  { name: '鬼將',   ch: '將', img: 'ogre',      r: 22, hp: 160, speed: 55,  dmg: 16, stone: 6, charger: true },
+  boss_dragon:  { ...BOSS, name: '蛟龍王', ch: '龍', img: 'dragon', face: 1 },
+  boss_tiger:   { ...BOSS, name: '虎王',   ch: '虎', img: 'tiger', face: -1 },
+  boss_lion:    { ...BOSS, name: '獅王',   ch: '獅', img: 'lion' },
+  boss_trex:    { ...BOSS, name: '暴龍王', ch: '暴', img: 'trex', face: 1 },
+  boss_gorilla: { ...BOSS, name: '猿王',   ch: '猿', img: 'gorilla', face: -1 },
 };
+export const BOSS_TYPES = Object.keys(ENEMY_TYPES).filter(k => ENEMY_TYPES[k].boss);
+
+// 依遊戲分鐘決定妖獸出現權重
+export function spawnTable(gm) {
+  const t = [['bat', 4], ['imp', 4], ['wolf', 2]];
+  if (gm >= 2) t.push(['fox', 2], ['spit', 1.5], ['snake', 1], ['boar', 1], ['bear', 0.6]);
+  if (gm >= 8) t.push(['scorp', 1.2], ['croc', 1]);
+  if (gm >= 12) t.push(['ogre', 0.5]);
+  return t;
+}
+
+// 需要載入的圖片
+export const IMAGES = ['bat', 'goblin', 'wolf', 'fox', 'spider', 'snake', 'scorpion', 'boar', 'crocodile', 'bear', 'ogre',
+  'dragon', 'tiger', 'lion', 'trex', 'gorilla', 'mage', 'fencer', 'shrine', 'gem', 'scroll', 'bone', 'pill'];
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
 

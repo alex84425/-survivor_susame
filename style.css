@@ -31,9 +31,9 @@ html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden;
 #state { position: absolute; top: 40%; left: 50%; transform: translateX(-50%); font-size: 18px; color: #ffd98a; text-shadow: 0 0 6px #000; }
 
 .box { position: absolute; left: 50%; transform: translateX(-50%); background: rgba(14,14,22,.92); border: 1px solid #6b5a2e; border-radius: 10px; padding: 10px; pointer-events: auto; }
-#choice { bottom: 40px; width: 640px; }
-#shop { bottom: 40px; left: auto; right: 8px; transform: none; width: 330px; }
-#choice.withshop { left: 8px; transform: none; }
+#choice { bottom: 34px; width: min(640px, calc(100vw - 16px)); z-index: 2; }
+#shop { bottom: 34px; left: auto; right: 8px; transform: none; width: 330px; z-index: 2; }
+#choice.withshop { left: 8px; transform: none; width: min(640px, calc(100vw - 354px)); }
 .box .title { display: flex; justify-content: space-between; margin-bottom: 6px; color: #ffd98a; }
 .timer { height: 4px; background: #333; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
 .timer > div { height: 100%; background: #ffd98a; }
@@ -47,8 +47,12 @@ html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden;
 .shopitem.sold { opacity: .35; }
 .shopitem.poor .price { color: #e05555; }
 
-#toasts { position: absolute; left: 230px; bottom: 40px; display: flex; flex-direction: column-reverse; gap: 3px; width: 360px; }
-.toast { background: rgba(10,12,18,.8); border-left: 3px solid #ffd98a; padding: 3px 8px; border-radius: 3px; animation: fade 6s forwards; }
+#toasts { position: absolute; left: 8px; bottom: 34px; display: flex; flex-direction: column; gap: 3px; width: 300px; transition: bottom .15s; }
+/* 選擇或商店介面開啟時，訊息往上讓位並只留最新 3 則 */
+#hud.choosing #toasts { bottom: 215px; }
+#hud.choosing #toasts .toast:nth-child(n+4) { display: none; }
+#hud.choosing #prompt, #hud.shopping #prompt { bottom: 215px; }
+.toast { font-size: 12px; background: rgba(10,12,18,.8); border-left: 3px solid #ffd98a; padding: 3px 8px; border-radius: 3px; animation: fade 6s forwards; }
 @keyframes fade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
 
 #help { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #8f897a; white-space: nowrap; }

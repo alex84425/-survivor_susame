@@ -25,7 +25,7 @@ export class Hud {
     d.innerHTML = msg;
     const box = $('toasts');
     box.prepend(d);
-    while (box.children.length > 7) box.lastChild.remove();
+    while (box.children.length > 6) box.lastChild.remove();
     setTimeout(() => d.remove(), 6000);
   }
 
@@ -39,6 +39,8 @@ export class Hud {
     $('h-phase').innerHTML = `妖潮 ${ec(g.phaseElem)}　宜用 ${ec(COUNTERED_BY[g.phaseElem])}`;
     $('h-kills').textContent = `斬妖 ${P.kills}`;
     $('slowfx').classList.toggle('on', P.slowActive);
+    $('hud').classList.toggle('choosing', !!g.choice);
+    $('hud').classList.toggle('shopping', !!g.curSect);
 
     const w = P.weapon;
     let L = '';

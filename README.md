@@ -34,3 +34,4 @@ python -m http.server 8770
 - `src/main.js`：遊戲主場景（戰鬥、宗門、煉器、路人、天劫）
 - `src/ui.js`：DOM 介面
 - `src/sfx.js`：合成音效與背景音樂
+- `assets/img/`：妖獸與道具圖片（Microsoft Fluent Emoji，MIT 授權，見 [assets/CREDITS.md](assets/CREDITS.md)）
