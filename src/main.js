@@ -4,6 +4,7 @@ import {
   SKILLS, SKILL_IDS, MAX_SKILLS, MAX_SKILL_LVL, ENEMY_TYPES, randName, randSectName, randGongfaName,
 } from './data.js';
 import { Hud } from './ui.js';
+import { sfx, initAudio, toggleMute, toggleBgm, setIntensity } from './sfx.js';
 
 const WORLD = 4000;
 const CELL = 80;
@@ -90,7 +91,10 @@ class Main extends Phaser.Scene {
     this.add.tileSprite(0, 0, WORLD, WORLD, 'bgtile').setOrigin(0).setDepth(-10);
     this.under = this.add.graphics().setDepth(-5);
     this.fx = this.add.graphics().setDepth(6);
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,Q,R,E,F,ONE,TWO,THREE,Z,X,C,ENTER');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,Q,R,E,F,ONE,TWO,THREE,Z,X,C,ENTER,M,B');
+    // 瀏覽器規定要有使用者操作後才能播放聲音
+    this.input.keyboard.on('keydown', initAudio);
+    this.input.on('pointerdown', initAudio);
     this.hud = new Hud();
 
     this.t = 0; this.gm = 0;
@@ -177,6 +181,7 @@ class Main extends Phaser.Scene {
     this.gm = this.t / DURATION * 30;
 
     this.updatePhase();
+    setIntensity(this.trib || this.enemies.some(e => e.boss) ? 1 : 0);
     this.updateInput(dt);
     this.spawnEnemies(dt);
     this.buildGrid();
@@ -220,7 +225,11 @@ class Main extends Phaser.Scene {
     P.sprite.setPosition(P.x, P.y);
 
     // 神識
+    const wasSlow = P.slowActive;
     P.slowActive = k.Q.isDown && P.ss > 1;
+    if (P.slowActive && !wasSlow) sfx.slow();
+    if (JD(k.M)) this.hud.toast(toggleMute() ? '已靜音' : '已開啟聲音', '#999');
+    if (JD(k.B)) this.hud.toast(toggleBgm() ? '背景音樂：開' : '背景音樂：關', '#999');
     if (P.slowActive) P.ss -= 12 * dt;
     else P.ss = Math.min(this.ssMax(), P.ss + (2 + P.S * 0.3) * dt);
     if (JD(k.R)) {
@@ -230,6 +239,7 @@ class Main extends Phaser.Scene {
         let n = 0;
         for (const d of this.drops) if (d2(d.x, d.y, P.x, P.y) < R * R) { d.mag = true; n++; }
         this.areas.push({ kind: 'flash', x: P.x, y: P.y, R, life: 0.35, max: 0.35, color: 0x8e6cf0 });
+        sfx.sweep();
         this.hud.toast(`神識掃過，收取 ${n} 件寶物`, '#8e6cf0');
       } else this.hud.toast('神識不足', '#8e6cf0');
     }
@@ -276,19 +286,20 @@ class Main extends Phaser.Scene {
       this.bossCount = bi;
       this.spawnEnemy('boss');
       this.hud.toast(`<b style="color:#e05555">妖王</b>現世！`, '#e05555');
+      sfx.roar();
     }
   }
 
-  spawnEnemy(type) {
+  spawnEnemy(type, at) {
     const gm = this.gm, P = this.P;
     if (!type) {
       const r = Math.random();
       type = gm < 2 ? (r < 0.85 ? 'imp' : 'wolf') : r < 0.5 ? 'imp' : r < 0.72 ? 'wolf' : r < 0.88 ? 'spit' : 'bear';
     }
     const T = ENEMY_TYPES[type];
-    const elem = type === 'boss' || Math.random() < 0.6 ? this.phaseElem : pick(ELEMS);
+    const elem = at ? at.elem : type === 'boss' || Math.random() < 0.6 ? this.phaseElem : pick(ELEMS);
     const a = rand(0, Math.PI * 2), R = rand(650, 820);
-    const x = clamp(P.x + Math.cos(a) * R, 20, WORLD - 20), y = clamp(P.y + Math.sin(a) * R, 20, WORLD - 20);
+    const x = clamp(at ? at.x : P.x + Math.cos(a) * R, 20, WORLD - 20), y = clamp(at ? at.y : P.y + Math.sin(a) * R, 20, WORLD - 20);
     const hp = T.hp * (1 + gm * 0.25 + gm * gm * 0.02);
     this.enemies.push({
       type, elem, x, y, r: T.r, hp, maxHp: hp, boss: !!T.boss,
@@ -367,7 +378,11 @@ class Main extends Phaser.Scene {
       if (e.retarget <= 0 || !e.target || e.target.hp <= 0 || e.target.dead || e.target.escaped) { e.retarget = 0.5; e.target = this.pickEnemyTarget(e); }
       const tg = e.target;
       const dx = tg.x - e.x, dy = tg.y - e.y, d = Math.hypot(dx, dy) || 1;
-      let mv = e.speed * ts * dt;
+      let mv = e.speed * ts * dt, mx = dx / d, my = dy / d, dashing = false;
+      if (e.boss || e.type === 'bear') {
+        const o = this.updateSpecial(e, dt * ts, tg, d);
+        if (o) { mv = o.mv; mx = o.mx; my = o.my; dashing = !!o.dash; }
+      }
       if (ENEMY_TYPES[e.type].ranged) {
         if (d < 220) mv = -mv; else if (d < 290) mv = 0;
         e.shootT -= dt * ts;
@@ -376,8 +391,8 @@ class Main extends Phaser.Scene {
           this.shoot({ team: 'foe', x: e.x, y: e.y, ang: Math.atan2(dy, dx), speed: 230, dmg: e.dmg, elem: e.elem, life: 3, r: 6, tex: 'foe', realm: e.realm });
         }
       }
-      e.x += dx / d * mv + e.kx * dt;
-      e.y += dy / d * mv + e.ky * dt;
+      e.x += mx * mv + e.kx * dt;
+      e.y += my * mv + e.ky * dt;
       e.kx *= 0.88; e.ky *= 0.88;
       // 分離
       const cell = this.grid.get(((e.x / CELL) | 0) * 1000 + ((e.y / CELL) | 0));
@@ -400,12 +415,95 @@ class Main extends Phaser.Scene {
       const rr = e.r + tg.r;
       if (d2(e.x, e.y, tg.x, tg.y) < rr * rr && e.touchCd <= 0) {
         e.touchCd = 0.7;
-        this.hitTarget(tg, e.dmg, e.elem);
+        this.hitTarget(tg, e.dmg * (dashing ? 1.6 : 1), e.elem);
       }
       e.sprite.setPosition(e.x, e.y);
       if (e.flash > 0) { e.flash -= dt; if (e.flash <= 0) e.sprite.clearTint(); }
     }
     if (this.enemies.some(e => e.hp <= 0)) this.enemies = this.enemies.filter(e => e.hp > 0);
+  }
+
+  // 妖王 / 妖熊的特殊技能。回傳 null 表示照常移動，否則覆蓋移動向量
+  updateSpecial(e, sdt, tg, d) {
+    const P = this.P;
+    if (!e.act) {
+      if (e.skillT === undefined) e.skillT = e.boss ? 2 : rand(3, 7);
+      e.skillT -= sdt;
+      if (e.skillT > 0) return null;
+      if (e.boss) {
+        const rage = e.hp < e.maxHp * 0.5;
+        e.skillT = rand(2.2, 3.5) * (rage ? 0.6 : 1);
+        this.startAct(e, pick(['charge', 'charge', 'barrage', 'summon', 'slam']));
+        if (rage && !e.raged) { e.raged = true; this.hud.toast('妖王狂暴了！', '#e05555'); sfx.roar(); }
+      } else {
+        e.skillT = rand(6, 10);
+        if (tg !== P || d > 380) return null;
+        this.startAct(e, 'charge');
+      }
+    }
+    const a = e.act;
+    if (!a) return null;
+    a.t -= sdt;
+    const still = { mv: 0, mx: 0, my: 0 };
+    switch (a.kind) {
+      case 'charge':
+        if (a.phase === 'wind') {
+          if (a.t > 0.25) a.ang = Math.atan2(P.y - e.y, P.x - e.x);
+          if (a.t <= 0) { a.phase = 'dash'; a.t = e.boss ? 0.7 : 0.5; sfx.dash(); }
+          return still;
+        }
+        if (a.t <= 0) { e.act = null; return null; }
+        return { mv: (e.boss ? 760 : 540) * sdt, mx: Math.cos(a.ang), my: Math.sin(a.ang), dash: true };
+      case 'barrage':
+        a.next -= sdt;
+        if (a.next <= 0) {
+          a.next = 0.35; a.waves--;
+          const n = 16 + Math.floor(this.gm / 3);
+          for (let i = 0; i < n; i++) {
+            this.shoot({ team: 'foe', x: e.x, y: e.y, ang: (i + a.waves * 0.5) / n * Math.PI * 2, speed: 210, dmg: e.dmg * 0.5, elem: e.elem, life: 4, r: 7, tex: `fp_${e.elem}`, realm: e.realm });
+          }
+          sfx.barrage();
+        }
+        if (a.waves <= 0) e.act = null;
+        return still;
+      case 'summon':
+        if (a.t <= 0) {
+          for (let i = 0; i < 6; i++) {
+            const ang = i / 6 * Math.PI * 2;
+            this.spawnEnemy(pick(['imp', 'wolf']), { x: e.x + Math.cos(ang) * 60, y: e.y + Math.sin(ang) * 60, elem: e.elem });
+          }
+          e.act = null;
+        }
+        return still;
+      case 'slam':
+        if (a.t <= 0) e.act = null;
+        return still;
+    }
+    return null;
+  }
+
+  startAct(e, kind) {
+    const P = this.P;
+    switch (kind) {
+      case 'charge':
+        e.act = { kind, phase: 'wind', t: e.boss ? 0.9 : 0.7, ang: Math.atan2(P.y - e.y, P.x - e.x) };
+        sfx.warn();
+        break;
+      case 'barrage':
+        e.act = { kind, t: 2, next: 0.3, waves: 3 };
+        break;
+      case 'summon':
+        e.act = { kind, t: 0.8 };
+        sfx.roar();
+        break;
+      case 'slam': {
+        e.act = { kind, t: 0.6 };
+        const pts = [[0, 0], ...Array.from({ length: 4 }, () => [rand(-130, 130), rand(-130, 130)])];
+        for (const [ox, oy] of pts) this.areas.push({ kind: 'foeslam', x: P.x + ox, y: P.y + oy, R: 75, delay: 1.1, max: 1.1, dmg: e.dmg * 1.2 });
+        sfx.warn();
+        break;
+      }
+    }
   }
 
   hitTarget(tg, dmg, elem) {
@@ -418,6 +516,7 @@ class Main extends Phaser.Scene {
     if (this.over) return;
     P.shieldDelay = 3;
     P.hurtT = 0.12;
+    sfx.hurt();
     if (P.shield > 0) { const a = Math.min(P.shield, dmg); P.shield -= a; dmg -= a; }
     P.hp -= dmg;
     if (P.hp <= 0) { P.hp = 0; this.endGame(false); }
@@ -431,6 +530,7 @@ class Main extends Phaser.Scene {
     e.hp -= dmg;
     if (e.sprite && !e.isPb) { e.flash = 0.06; e.sprite.setTintFill(0xffffff); }
     this.dmgText(e.x, e.y - e.r, dmg, m);
+    sfx.hit();
     if (opt.slow) { e.slowT = opt.slow; e.slowF = opt.slowF || 0.5; }
     if (opt.kb && !e.boss && !e.isPb) {
       const a = Math.atan2(e.y - opt.ky, e.x - opt.kx);
@@ -444,6 +544,7 @@ class Main extends Phaser.Scene {
     const T = ENEMY_TYPES[e.type], P = this.P;
     e.sprite.destroy();
     P.kills++;
+    sfx.kill();
     this.spawnDrop('stone', e.x, e.y, { value: T.stone * (1 + this.gm * 0.12) });
     const dr = 1 + this.dropRate();
     if (e.boss || Math.random() < 0.015 * dr) this.spawnDrop('dan', e.x, e.y, { elem: e.elem });
@@ -455,6 +556,7 @@ class Main extends Phaser.Scene {
     if (e.boss) {
       for (let i = 0; i < 12; i++) this.spawnDrop('stone', e.x, e.y, { value: T.stone * (1 + this.gm * 0.12) / 12 });
       this.hud.toast('妖王伏誅！掉落一套煉器材料', '#e05555');
+      sfx.bossDie();
     }
   }
 
@@ -464,7 +566,9 @@ class Main extends Phaser.Scene {
     for (const s of P.skills) {
       s.t -= dt;
       if (P.meditating || s.t > 0) continue;
-      s.t = this.castSkill(s) ? this.skillCd(s) : 0.2;
+      const ok = this.castSkill(s);
+      s.t = ok ? this.skillCd(s) : 0.2;
+      if (ok && s.id !== 'wanmu') sfx.shoot(SKILLS[s.id].elem);
     }
   }
 
@@ -624,6 +728,16 @@ class Main extends Phaser.Scene {
             if (d2(a.x, a.y, P.x, P.y) < (a.R + P.r) ** 2) this.damagePlayer(a.dmg);
             this.areaHit(a.x, a.y, a.R, e => this.hurt(e, a.dmg * 3, null));
             this.areas.push({ kind: 'flash', x: a.x, y: a.y, R: a.R, life: 0.3, max: 0.3, color: 0xbfd8ff });
+            sfx.thunder();
+            a.dead = true;
+          }
+          break;
+        case 'foeslam':
+          a.delay -= dt * (P.slowActive ? 0.6 : 1);
+          if (a.delay <= 0) {
+            if (d2(a.x, a.y, P.x, P.y) < (a.R + P.r) ** 2) this.damagePlayer(a.dmg);
+            this.areas.push({ kind: 'flash', x: a.x, y: a.y, R: a.R, life: 0.3, max: 0.3, color: 0xff3030 });
+            sfx.slam();
             a.dead = true;
           }
           break;
@@ -682,13 +796,16 @@ class Main extends Phaser.Scene {
       } else if (pb.state === 'fighting' || pb.state === 'ally') {
         const tg = this.nearestEnemyOnly(pb.x, pb.y, 380);
         if (pb.state === 'ally') {
-          // 比較笨：偶爾會衝進妖群
-          pb.dumbT -= dt;
-          if (pb.dumbT <= 0) pb.dumbT = rand(3, 7);
-          const charging = pb.dumbT < 1.5 && tg;
+          // 跟在玩家身邊的固定站位；比較笨：偶爾會短暫衝進妖群
+          if (pb.slot === undefined) pb.slot = rand(0, Math.PI * 2);
+          const fx = P.x + Math.cos(pb.slot) * 70, fy = P.y + Math.sin(pb.slot) * 70;
           const dP = Math.sqrt(d2(pb.x, pb.y, P.x, P.y));
+          pb.dumbT -= dt;
+          if (pb.dumbT <= 0) pb.dumbT = rand(6, 10);
+          const charging = pb.dumbT < 0.8 && tg && dP < 220;
+          sp = Math.max(pb.speed, P.speed * 1.15) * (dP > 350 ? 1.8 : 1);
           if (charging) { mx = tg.x - pb.x; my = tg.y - pb.y; }
-          else if (dP > 160) { mx = P.x - pb.x; my = P.y - pb.y; }
+          else if (d2(pb.x, pb.y, fx, fy) > 20 * 20) { mx = fx - pb.x; my = fy - pb.y; }
         } else {
           pb.wanderT -= dt;
           if (pb.wanderT <= 0) { pb.wanderT = rand(1, 3); pb.wx = pb.x + rand(-120, 120); pb.wy = pb.y + rand(-120, 120); }
@@ -831,6 +948,7 @@ class Main extends Phaser.Scene {
     if (P.stones < it.price) { this.hud.toast('靈石不足', '#e05555'); return; }
     if (it.kind === 'new' && P.skills.length >= MAX_SKILLS) { this.hud.toast('神通已滿', '#e05555'); return; }
     P.stones -= it.price;
+    sfx.buy();
     this.applyOpt(it);
     s.shop[i] = null;
     s.shopVer++;
@@ -914,6 +1032,7 @@ class Main extends Phaser.Scene {
       let best = null;
       for (const [el, gr] of Object.entries(P.weapons)) if (!best || gr > best.grade) best = { elem: el, grade: gr };
       P.weapon = best;
+      sfx.craft();
       this.hud.toast(`煉成 <b style="color:${ELEM_CSS[e]}">${GRADE_CN[g]}品${e}屬法寶</b>（耗 ${cost} 靈石）`, ELEM_CSS[e]);
     }
   }
@@ -947,8 +1066,9 @@ class Main extends Phaser.Scene {
 
   collect(d) {
     const P = this.P;
+    if (d.kind !== 'stone') sfx.item();
     switch (d.kind) {
-      case 'stone': P.stones += d.value; break;
+      case 'stone': P.stones += d.value; sfx.stone(); return;
       case 'dan': {
         const amt = 0.08 * (P.lgType === '雜靈根' ? 2 : 1);
         P.lg[d.elem] += amt;
@@ -982,12 +1102,14 @@ class Main extends Phaser.Scene {
       P.exp -= this.expNext();
       P.level++;
       this.pendingChoices++;
+      sfx.levelup();
       P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.1);
     }
     // 大境界突破 → 天劫
     if (!this.trib && P.realm < 4 && P.level >= (P.realm + 1) * 10) {
       this.trib = { t: 9, strikeT: 0.5 };
       this.hud.toast(`⚡ 欲突破${REALMS[P.realm + 1]}，天劫降臨！`, '#bfd8ff');
+      sfx.thunder();
     }
     if (this.trib) {
       const tr = this.trib;
@@ -1027,6 +1149,7 @@ class Main extends Phaser.Scene {
     const c = this.choice;
     if (!c || !c.opts[i]) return;
     this.choice = null;
+    sfx.select();
     this.applyOpt(c.opts[i]);
   }
 
@@ -1123,6 +1246,7 @@ class Main extends Phaser.Scene {
         case 'zone': u.fillStyle(a.color, 0.22 * Math.min(1, a.life)).fillCircle(a.x, a.y, a.R); break;
         case 'ring': f.lineStyle(4, a.color, 0.7).strokeCircle(a.x, a.y, a.r); break;
         case 'drop': f.lineStyle(2, a.color, 0.8).strokeCircle(a.x, a.y, a.R).fillStyle(a.color, 0.25 * (1 - a.delay / a.max)).fillCircle(a.x, a.y, a.R); break;
+        case 'foeslam': f.lineStyle(3, 0xff3030, 0.9).strokeCircle(a.x, a.y, a.R).fillStyle(0xff3030, 0.35 * (1 - a.delay / a.max)).fillCircle(a.x, a.y, a.R); break;
         case 'lightning': f.lineStyle(2, 0xbfd8ff, 0.9).strokeCircle(a.x, a.y, a.R).fillStyle(0xbfd8ff, 0.35 * (1 - a.delay / a.max)).fillCircle(a.x, a.y, a.R); break;
         case 'flash': f.fillStyle(a.color, 0.35 * a.life / a.max).fillCircle(a.x, a.y, a.R); break;
       }
@@ -1134,7 +1258,17 @@ class Main extends Phaser.Scene {
       const col = pb.state === 'ally' ? 0x5cc96b : pb.state === 'fighting' ? 0xcccccc : 0xe05555;
       this.hpBar(f, pb.x, pb.y + 20, 34, pb.hp / pb.maxHp, col);
     }
-    for (const e of this.enemies) if (e.boss || e.type === 'bear') this.hpBar(f, e.x, e.y + e.r + 5, e.r * 2, e.hp / e.maxHp, 0xe05555);
+    for (const e of this.enemies) {
+      if (!e.boss && e.type !== 'bear') continue;
+      this.hpBar(f, e.x, e.y + e.r + 5, e.r * 2, e.hp / e.maxHp, 0xe05555);
+      // 衝鋒預警
+      if (e.act && e.act.kind === 'charge' && e.act.phase === 'wind') {
+        const len = e.boss ? 540 : 280, a = e.act.ang;
+        const blink = 0.18 + 0.2 * Math.abs(Math.sin(this.t * 18));
+        f.lineStyle(e.r * 2, 0xff3030, blink).lineBetween(e.x, e.y, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
+      }
+      if (e.act && e.act.kind === 'summon') f.lineStyle(3, 0xff3030, 0.6).strokeCircle(e.x, e.y, e.r + 20 * (1 - e.act.t / 0.8) + 4);
+    }
     // 邊界
     f.lineStyle(4, 0x6b2020, 0.8).strokeRect(0, 0, WORLD, WORLD);
   }
@@ -1163,6 +1297,8 @@ class Main extends Phaser.Scene {
   endGame(win) {
     if (this.over) return;
     this.over = true;
+    setIntensity(0);
+    win ? sfx.win() : sfx.lose();
     this.hud.update(this);
     this.hud.gameOver(win, this);
   }
