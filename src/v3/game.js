@@ -351,7 +351,9 @@ class Arena extends Phaser.Scene {
       if (tr.alpha !== want) tr.setAlpha(tr.alpha + (want - tr.alpha) * Math.min(1, dt * 10));
     }
     this.draw();
-    setIntensity(this.enemies.some(e => e.T.boss && e.aggro && e.hp > 0) ? 1 : 0);
+    // 背景音樂：探索 → 妖王在附近時戰鬥曲 → 妖皇決戰
+    const nearBoss = this.enemies.find(e => e.T.boss && e.aggro && e.hp > 0 && d2(e.x, e.y, this.P.x, this.P.y) < 1600 * 1600);
+    setIntensity(nearBoss ? (nearBoss.T.final ? 2 : 1) : 0);
     this.hudT -= dt;
     if (this.hudT <= 0) { this.hudT = 1 / 15; hud.update(this); }
   }
