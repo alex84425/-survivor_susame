@@ -354,6 +354,7 @@ class Arena extends Phaser.Scene {
     // 背景音樂：探索 → 妖王在附近時戰鬥曲 → 妖皇決戰
     const nearBoss = this.enemies.find(e => e.T.boss && e.aggro && e.hp > 0 && d2(e.x, e.y, this.P.x, this.P.y) < 1600 * 1600);
     setIntensity(nearBoss ? (nearBoss.T.final ? 2 : 1) : 0);
+    setBgmMode(nearBoss ? (nearBoss.T.final ? 2 : 1) : 0);
     this.hudT -= dt;
     if (this.hudT <= 0) { this.hudT = 1 / 15; hud.update(this); }
   }
@@ -1382,19 +1383,34 @@ const hud = {
   },
 };
 
-// 外部背景音樂：assets/audio/bgm.mp3 或 bgm.ogg 存在就播它（這個資料夾不上傳 GitHub）
-let bgmEl = null;
+// 外部背景音樂（自用，assets/audio/ 不上傳）：
+//   bgm_explore.* 探索、bgm_battle.* 妖王戰、bgm_final.* 決戰；只有一個檔案時全程播它
+let bgmEl = null, bgmTracks = null, bgmMode = -1;
 async function startBgmFile() {
-  if (bgmEl) return;
+  if (bgmTracks) return;
   let files = [];
   try { const r = await fetch('assets/audio/list.json'); if (r.ok) files = await r.json(); } catch (e) { /* 其他伺服器沒有這個清單 */ }
-  const f = files.find(n => /^bgm\./i.test(n)) || files[0];
-  if (!f) return;
-  bgmEl = new Audio('assets/audio/' + f); bgmEl.loop = true; bgmEl.volume = 0.45;
+  if (!files.length) return;
+  const find = k => files.find(n => n.toLowerCase().startsWith(k));
+  const any = find('bgm.') || files[0];
+  bgmTracks = [find('bgm_explore') || any, find('bgm_battle') || find('bgm_explore') || any, find('bgm_final') || find('bgm_battle') || any];
   toggleBgm(); // 關掉合成音樂
-  const play = () => bgmEl.play().catch(() => {});
-  play(); window.addEventListener('pointerdown', play, { once: true }); window.addEventListener('keydown', play, { once: true });
-  window.addEventListener('keydown', ev => { if (ev.key === 'b' || ev.key === 'B') bgmEl.paused ? bgmEl.play() : bgmEl.pause(); });
+  const kick = () => { if (bgmEl) bgmEl.play().catch(() => {}); };
+  window.addEventListener('pointerdown', kick, { once: true }); window.addEventListener('keydown', kick, { once: true });
+  window.addEventListener('keydown', ev => { if (bgmEl && (ev.key === 'b' || ev.key === 'B')) bgmEl.paused ? bgmEl.play() : bgmEl.pause(); });
+  setBgmMode(0);
+}
+function setBgmMode(m) {
+  if (!bgmTracks || m === bgmMode) return;
+  const file = bgmTracks[m];
+  bgmMode = m;
+  if (bgmEl && bgmEl.src.endsWith(encodeURI(file))) return;
+  const old = bgmEl;
+  bgmEl = new Audio('assets/audio/' + file); bgmEl.loop = true; bgmEl.volume = 0;
+  bgmEl.play().catch(() => {});
+  // 交叉淡入淡出 1 秒
+  let k = 0;
+  const iv = setInterval(() => { k += 0.1; bgmEl.volume = Math.min(0.45, 0.45 * k); if (old) old.volume = Math.max(0, 0.45 * (1 - k)); if (k >= 1) { clearInterval(iv); if (old) old.pause(); } }, 100);
 }
 
 // ---------- 職業選擇 ----------
