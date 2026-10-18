@@ -13,7 +13,7 @@ export class Vfx {
     this.s = scene;
     const cam = scene.cameras.main;
     // 暗角營造夜戰氛圍（全畫面泛光會讓背景霧化，改由各特效自帶光暈）
-    if (cam.postFX) cam.postFX.addVignette(0.5, 0.5, 0.9, 0.4);
+    if (cam.postFX) cam.postFX.addVignette(0.5, 0.5, 0.95, 0.22);
     const mk = (tex, cfg) => scene.add.particles(0, 0, 'fx_' + tex, { emitting: false, ...cfg }).setDepth(cfg.depth ?? 7);
     this.sparkE = mk('star_04', { speed: { min: 140, max: 420 }, scale: { start: 0.22, end: 0 }, lifespan: { min: 180, max: 380 }, rotate: { min: 0, max: 360 }, blendMode: ADD });
     this.emberE = mk('circle_05', { speed: { min: 10, max: 40 }, scale: { start: 0.16, end: 0 }, lifespan: { min: 300, max: 600 }, blendMode: ADD });
@@ -26,8 +26,9 @@ export class Vfx {
   // 刀光：新月形貼圖，朝瞄準方向
   slash(x, y, ang, R, color, heavy, flip) {
     const s = this.s;
-    const k = (R * 2.3) / 256;
-    const img = s.add.image(x + Math.cos(ang) * R * 0.35, y + Math.sin(ang) * R * 0.35, 'fx_slash_01')
+    // 大小對齊判定：新月外緣約落在攻擊距離 R
+    const k = (R * 1.7) / 256;
+    const img = s.add.image(x + Math.cos(ang) * R * 0.5, y + Math.sin(ang) * R * 0.5, 'fx_slash_01')
       .setBlendMode(ADD).setTint(color).setDepth(7).setScale(k, k * (heavy ? 1.15 : 0.9)).setRotation(ang - Math.PI / 2).setFlipX(!!flip);
     s.tweens.add({ targets: img, alpha: { from: 1, to: 0 }, scaleX: k * 1.2, duration: heavy ? 220 : 150, ease: 'Cubic.Out', onComplete: () => img.destroy() });
     if (heavy) {
@@ -90,6 +91,14 @@ export class Vfx {
     const s = this.s, k = R * 2 / 256;
     const img = s.add.image(x, y, 'fx_magic_01').setBlendMode(ADD).setTint(color).setDepth(2).setScale(k).setAlpha(0);
     s.tweens.add({ targets: img, alpha: { from: 0.9, to: 0 }, angle: 90, duration: dur, onComplete: () => img.destroy() });
+  }
+
+  // 水龍捲
+  vortex(x, y, R, color) {
+    const s = this.s, k = R * 2 / 256;
+    const img = s.add.image(x, y, 'fx_twirl_02').setBlendMode(ADD).setTint(color).setDepth(6).setScale(k * 0.4);
+    s.tweens.add({ targets: img, scale: k, angle: -540, alpha: { from: 1, to: 0 }, duration: 450, ease: 'Cubic.Out', onComplete: () => img.destroy() });
+    this.ring(x, y, R, color, 400);
   }
 
   // 雷擊

@@ -28,7 +28,7 @@ http://localhost:8770/wiki.html ：神通（各等級×品階傷害、打木樁�
 | 1～5 / 點卡片 | 選擇主修（金・追獵者、木・遊俠、水・御法者、火・術士、土・體修） |
 | WASD | 移動 |
 | 滑鼠 | 瞄準（有輕微自動修正） |
-| 左鍵 | 普攻（金三段劍擊、木連射追蹤、水鞭、火按住蓄力、土重拳） |
+| 左鍵 | 點擊＝普攻連段（近戰會自動吸附到前方敵人）；金、水、土**按住放開＝蓄力重擊**；木按住連射；火按住蓄力火球 |
 | 右鍵 | 戰技（消耗真元） |
 | Q | 大招（打出傷害累積） |
 | 空白 | 閃避；敵人出手瞬間閃開＝完美閃避（神識時緩、下一擊暴擊） |
@@ -46,4 +46,6 @@ http://localhost:8770/wiki.html ：神通（各等級×品階傷害、打木樁�
 - `src/formula.js`：所有數值公式（遊戲與百科共用）
 - `wiki.html`、`src/wiki.js`：百科
 - `tools/sim.js`：自動模擬（數值平衡）
+- `assets/env/`：草原底圖與地貌物件（Gemini 生成；`tools/seamless.py` 做無縫、`tools/cutout.py` 去背）
+- `assets/vfx/`：特效貼圖（Kenney Particle Pack，CC0）
 - `assets/img/`：妖獸與道具圖片（Microsoft Fluent Emoji，MIT 授權，見 [assets/CREDITS.md](assets/CREDITS.md)）

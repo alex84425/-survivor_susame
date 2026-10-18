@@ -43,11 +43,48 @@ export function unitTex(scene, key, img, size, color, fallback) {
 }
 
 export function makeTextures(scene) {
-  canvasTex(scene, 'bg3', 128, 128, c => {
-    c.fillStyle = '#0f1218'; c.fillRect(0, 0, 128, 128);
-    c.strokeStyle = '#141820'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, 128, 128);
-    c.fillStyle = '#191e28';
-    for (let i = 0; i < 8; i++) c.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+  // 草地底圖（程式產生，可平鋪）。assets/env/grass.png 存在時改用素材
+  canvasTex(scene, 'grass_proc', 256, 256, (c, w, h) => {
+    c.fillStyle = '#4f7d3a'; c.fillRect(0, 0, w, h);
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    // 色塊雜訊
+    for (let i = 0; i < 900; i++) {
+      c.fillStyle = ['#47733a', '#578a3f', '#5b8f44', '#456e35', '#4c7a3a'][i % 5];
+      const x = rnd(0, w), y = rnd(0, h), r = rnd(2, 7);
+      for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) c.fillRect(x + ox, y + oy, r, r);
+    }
+    // 草葉筆觸
+    for (let i = 0; i < 520; i++) {
+      const x = rnd(0, w), y = rnd(0, h), l = rnd(4, 9), lean = rnd(-2, 2);
+      c.strokeStyle = Math.random() < 0.5 ? '#6aa04c' : '#3c6430'; c.lineWidth = 1.4;
+      for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) { c.beginPath(); c.moveTo(x + ox, y + oy); c.lineTo(x + ox + lean, y + oy - l); c.stroke(); }
+    }
+  });
+  // 地貌物件（程式產生的備案）
+  canvasTex(scene, 'tuft', 26, 18, c => {
+    c.strokeStyle = '#3f6a2e'; c.lineWidth = 2;
+    for (const x of [5, 9, 13, 17, 21]) { c.beginPath(); c.moveTo(x, 18); c.lineTo(x + (x - 13) * 0.4, 3 + Math.random() * 4); c.stroke(); }
+  });
+  canvasTex(scene, 'flower', 12, 12, c => {
+    c.fillStyle = ['#f2e36b', '#f0a0c8', '#ffffff', '#b8a0ff'][Math.floor(Math.random() * 4)];
+    for (const [x, y] of [[6, 2], [10, 6], [6, 10], [2, 6]]) { c.beginPath(); c.arc(x, y, 2.4, 0, Math.PI * 2); c.fill(); }
+    c.fillStyle = '#f0a020'; c.beginPath(); c.arc(6, 6, 2, 0, Math.PI * 2); c.fill();
+  });
+  canvasTex(scene, 'stone2', 30, 20, c => {
+    c.fillStyle = '#6e7068'; c.beginPath(); c.ellipse(15, 12, 13, 7, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#8a8c82'; c.beginPath(); c.ellipse(12, 9, 7, 4, 0, 0, Math.PI * 2); c.fill();
+  });
+  canvasTex(scene, 'tree2', 96, 110, c => {
+    c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(48, 100, 34, 9, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#5a3a20'; c.fillRect(42, 62, 12, 38);
+    for (const [x, y, r, col] of [[48, 40, 34, '#2f5a26'], [30, 50, 22, '#2f5a26'], [66, 50, 22, '#2f5a26'], [42, 32, 20, '#3d7a32'], [58, 38, 16, '#3d7a32'], [40, 26, 9, '#5a9a44']]) {
+      c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+    }
+  });
+  canvasTex(scene, 'bush2', 54, 38, c => {
+    for (const [x, y, r, col] of [[16, 22, 14, '#2f5a26'], [36, 22, 15, '#2f5a26'], [26, 16, 13, '#3d7a32'], [22, 12, 5, '#5a9a44']]) {
+      c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+    }
   });
   for (const e of ELEMS) {
     const col = ELEM_CSS[e];

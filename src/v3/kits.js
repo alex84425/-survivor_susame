@@ -5,30 +5,32 @@ export const CLASSES = {
   金: {
     id: 'jin', name: '追獵者', role: '中近距離・切入切出', hp: 280, speed: 215, img: 'fencer',
     passive: '對被標記或殘血（< 40%）的目標 +25%；閃避後下一次普攻 ×1.5',
-    basic: { name: '三段劍擊', desc: '連按左鍵三連斬，第三段向前突進',
+    basic: { name: '三段劍擊', desc: '連按左鍵三連斬，第三段突進並放出劍氣；按住蓄力放開＝穿刺重擊',
       steps: [
-        { wind: 0.07, rec: 0.16, range: 82, half: 0.95, dmg: 16, poise: 10, lunge: 40 },
-        { wind: 0.07, rec: 0.18, range: 82, half: 0.95, dmg: 17, poise: 12, lunge: 40 },
-        { wind: 0.12, rec: 0.34, range: 96, half: 1.05, dmg: 30, poise: 26, lunge: 130, heavy: true },
-      ], move: 0.5, window: 0.38 },
+        { wind: 0.07, rec: 0.15, range: 125, half: 1.15, dmg: 22, poise: 12, lunge: 40 },
+        { wind: 0.07, rec: 0.17, range: 125, half: 1.15, dmg: 24, poise: 14, lunge: 40 },
+        { wind: 0.12, rec: 0.32, range: 150, half: 1.2, dmg: 46, poise: 30, lunge: 110, heavy: true, wave: { dmg: 26, range: 180 } },
+      ], move: 0.5, window: 0.38, mpHit: 2,
+      charged: { kind: 'thrust', len: 220, width: 70, dmg: 70, poise: 50 } },
     skill: { id: 'feijian', name: '飛劍突刺', cost: 35, cd: 1.2, desc: '向滑鼠方向穿刺衝鋒 260 距離，路徑上的敵人受傷並被標記 6 秒（受傷 +25%）', dmg: 40, poise: 35 },
     ult: { name: '萬劍歸宗', desc: '在滑鼠附近降下 14 道劍雨，每道 34 傷害', dmg: 34 },
   },
   木: {
     id: 'mu', name: '遊俠', role: '遠程拉打・剋快速敵人', hp: 240, speed: 225, img: 'mage',
     passive: '對速度快的敵人 +30%；射擊時移動不減速',
-    basic: { name: '追蹤葉刃', desc: '按住左鍵連射會追蹤的葉刃，傷害普通', rate: 0.15, dmg: 8, poise: 3, speed: 640 },
+    basic: { name: '追蹤葉刃', desc: '按住左鍵連射會追蹤的葉刃，傷害普通', rate: 0.15, dmg: 8, poise: 3, speed: 640, homing: 3.5, life: 0.9 },
     skill: { id: 'chanteng', name: '纏藤', cost: 30, cd: 3, desc: '射出藤蔓，命中定身 2.5 秒並造成傷害', dmg: 24, poise: 15 },
     ult: { name: '萬木林', desc: '在滑鼠位置展開 230 範圍的林海 7 秒：敵人減速 60%、持續受傷', dmg: 12 },
   },
   水: {
     id: 'shui', name: '御法者', role: '平衡・彈反', hp: 300, speed: 210, img: 'mage',
     passive: '每次命中回復 0.6% 肉身',
-    basic: { name: '水鞭', desc: '兩段中距離扇形掃擊',
+    basic: { name: '水鞭', desc: '兩段中距離扇形掃擊；按住蓄力放開＝水龍捲，把周圍敵人拉近',
       steps: [
-        { wind: 0.11, rec: 0.24, range: 150, half: 0.55, dmg: 18, poise: 12 },
-        { wind: 0.13, rec: 0.36, range: 160, half: 0.65, dmg: 25, poise: 18, heavy: true },
-      ], move: 0.6, window: 0.4 },
+        { wind: 0.11, rec: 0.22, range: 170, half: 0.6, dmg: 22, poise: 13 },
+        { wind: 0.13, rec: 0.32, range: 180, half: 0.7, dmg: 30, poise: 20, heavy: true },
+      ], move: 0.6, window: 0.4,
+      charged: { kind: 'vortex', R: 200, dmg: 55, poise: 40 } },
     skill: { id: 'xuanbing', name: '玄冰架', cost: 20, cd: 0.8, desc: '0.35 秒彈反架勢。期間被攻擊＝彈反成功：無傷、凍住攻擊者並打出破綻、回 30 真元', dmg: 0 },
     ult: { name: '寒潮', desc: '以自身為中心 320 範圍，凍結所有敵人 3.5 秒並造成傷害', dmg: 45 },
   },
@@ -45,12 +47,13 @@ export const CLASSES = {
   },
   土: {
     id: 'tu', name: '體修', role: '近戰重擊・霸體', hp: 420, speed: 190, img: 'mage',
-    passive: '出招時霸體（不會被打斷）；肉身最高',
-    basic: { name: '開山拳', desc: '慢而重的兩段重拳，後搖長',
+    passive: '出招時霸體且減傷 30%，命中回 2% 肉身；肉身最高',
+    basic: { name: '開山拳', desc: '慢而重的兩段重拳，出招霸體；按住蓄力放開＝震地重擊',
       steps: [
-        { wind: 0.2, rec: 0.42, range: 74, half: 1.1, dmg: 36, poise: 32, lunge: 30, heavy: true },
-        { wind: 0.26, rec: 0.58, range: 84, half: 1.2, dmg: 52, poise: 48, lunge: 50, heavy: true },
-      ], move: 0.3, window: 0.45 },
+        { wind: 0.2, rec: 0.32, range: 120, half: 1.35, dmg: 62, poise: 48, lunge: 40, heavy: true },
+        { wind: 0.24, rec: 0.45, range: 140, half: 1.4, dmg: 95, poise: 72, lunge: 60, heavy: true },
+      ], move: 0.45, window: 0.45, shieldHit: 0.02,
+      charged: { kind: 'quake', R: 180, dmg: 120, poise: 90 } },
     skill: { id: 'dilie', name: '地裂', cost: 35, cd: 3, desc: '前搖 0.35 秒，以自身為中心 160 範圍震地並擊退', dmg: 58, poise: 60 },
     ult: { name: '金剛不壞', desc: '7 秒內減傷 70%、不會硬直，每秒震地一次', dmg: 36 },
   },
@@ -61,25 +64,25 @@ export const CLASSES = {
 // wind：前搖秒數範圍（隨機，避免背節奏）；band：近 near / 中 mid / 遠 far
 export const ENEMIES = {
   wolf: {
-    name: '妖狼', img: 'wolf', elem: '金', r: 17, hp: 260, poise: 60, speed: 165, pref: 95, sight: 430, size: 62, fast: true,
+    name: '妖狼', img: 'wolf', elem: '金', r: 17, hp: 260, poise: 60, speed: 165, pref: 72, sight: 430, size: 62, fast: true,
     moves: {
-      bite2: { band: 'near', w: 3, rec: 0.55, steps: [
+      bite2: { band: 'near', w: 3, rec: 0.85, steps: [
         { k: 'arc', range: 72, half: 0.75, wind: [0.42, 0.7], dmg: 16 },
         { k: 'arc', range: 72, half: 0.75, wind: [0.22, 0.38], dmg: 16 }] },
-      pounce: { band: 'mid', w: 3, rec: 0.7, steps: [{ k: 'line', len: 270, width: 44, wind: [0.55, 0.85], dmg: 22, dash: true }] },
+      pounce: { band: 'mid', w: 3, rec: 1.05, steps: [{ k: 'line', len: 270, width: 44, wind: [0.55, 0.85], dmg: 22, dash: true }] },
       howl: { band: 'far', w: 2, rec: 0.9, cd: 4, steps: [{ k: 'proj', n: 3, spread: 0.35, speed: 330, dmg: 14, wind: [0.6, 0.8], tex: 'wave', size: 12 }] },
     },
   },
   bear: {
-    name: '妖熊', img: 'bear', elem: '土', r: 26, hp: 720, poise: 150, speed: 105, pref: 90, sight: 400, size: 86,
+    name: '妖熊', img: 'bear', elem: '土', r: 26, hp: 720, poise: 150, speed: 105, pref: 82, sight: 400, size: 86,
     moves: {
-      swipe3: { band: 'near', w: 3, rec: 0.8, steps: [
+      swipe3: { band: 'near', w: 3, rec: 1.2, steps: [
         { k: 'arc', range: 92, half: 0.95, wind: [0.55, 0.9], dmg: 24 },
         { k: 'arc', range: 92, half: 0.95, wind: [0.3, 0.6], dmg: 24 },
         { k: 'arc', range: 105, half: 1.2, wind: [0.6, 1.05], dmg: 36 }] },
-      charge: { band: 'mid', w: 2, rec: 1.0, steps: [{ k: 'line', len: 340, width: 62, wind: [0.75, 1.0], dmg: 32, dash: true }] },
+      charge: { band: 'mid', w: 2, rec: 1.5, steps: [{ k: 'line', len: 340, width: 62, wind: [0.75, 1.0], dmg: 32, dash: true }] },
       rock: { band: 'far', w: 2, rec: 0.9, cd: 3, steps: [{ k: 'circle', at: 'target', R: 75, wind: [0.9, 1.1], dmg: 30, track: 0.5, rock: true }] },
-      slam: { band: 'near', w: 1, rec: 1.0, cd: 5, steps: [{ k: 'circle', at: 'self', R: 140, wind: [0.85, 1.1], dmg: 34 }] },
+      slam: { band: 'near', w: 1, rec: 1.5, cd: 5, steps: [{ k: 'circle', at: 'self', R: 140, wind: [0.85, 1.1], dmg: 34 }] },
     },
   },
   spider: {
@@ -94,13 +97,13 @@ export const ENEMIES = {
     },
   },
   tiger: {
-    name: '妖王・翼虎', img: 'tiger', elem: '火', r: 36, hp: 3400, poise: 320, speed: 175, pref: 110, sight: 520, size: 120, boss: true,
+    name: '妖王・翼虎', img: 'tiger', elem: '火', r: 36, hp: 3400, poise: 320, speed: 175, pref: 95, sight: 520, size: 120, boss: true,
     moves: {
-      claws: { band: 'near', w: 3, rec: 0.6, steps: [
+      claws: { band: 'near', w: 3, rec: 0.9, steps: [
         { k: 'arc', range: 120, half: 0.9, wind: [0.45, 0.75], dmg: 30 },
         { k: 'arc', range: 120, half: 0.9, wind: [0.2, 0.45], dmg: 30 },
         { k: 'circle', at: 'self', R: 150, wind: [0.5, 0.8], dmg: 38 }] },
-      pounce: { band: 'mid', w: 3, rec: 0.7, steps: [{ k: 'line', len: 380, width: 80, wind: [0.6, 0.9], dmg: 40, dash: true }] },
+      pounce: { band: 'mid', w: 3, rec: 1.05, steps: [{ k: 'line', len: 380, width: 80, wind: [0.6, 0.9], dmg: 40, dash: true }] },
       roar: { band: 'far', w: 2, rec: 1.0, cd: 5, steps: [{ k: 'ring', R: 520, speed: 420, wind: [0.8, 1.0], dmg: 30 }] },
       flames: { band: 'far', w: 2, rec: 0.8, steps: [{ k: 'proj', n: 7, spread: 0.9, speed: 300, dmg: 20, wind: [0.6, 0.9], tex: 'fire_火', size: 10 }] },
     },

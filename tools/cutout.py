@@ -21,6 +21,10 @@ OUT = os.path.join(ROOT, "assets", "img")
 SIZE = 160
 TOL = 60  # 與背景色的距離門檻
 
+# 地貌素材：輸出到 assets/env/<名稱>.png，清單寫入 assets/env/env.json
+ENV = {"tree", "tree2", "bush", "stone", "flower", "tuft", "stump", "pond"}
+ENV_OUT = os.path.join(ROOT, "assets", "env")
+
 KNOWN = {"bat", "goblin", "wolf", "fox", "spider", "snake", "scorpion", "boar", "crocodile", "bear", "ogre",
          "dragon", "tiger", "lion", "trex", "gorilla", "mage", "fencer"}
 
@@ -118,15 +122,20 @@ def split_sheet(im, n):
 def process(fn):
     stem = os.path.splitext(fn)[0].lower()
     names = [s.strip() for s in stem.split("+")]
-    bad = [n for n in names if n not in KNOWN]
+    bad = [n for n in names if n not in KNOWN and n not in ENV]
     if bad:
         print(f"  略過 {fn}：不認得的名稱 {bad}")
         return []
     im = remove_bg(Image.open(os.path.join(RAW, fn)))
     pieces = [im] if len(names) == 1 else split_sheet(im, len(names))
     for name, p in zip(names, pieces):
-        square(p).save(os.path.join(OUT, f"px_{name}.png"))
-        print(f"  {fn} → px_{name}.png")
+        if name in ENV:
+            os.makedirs(ENV_OUT, exist_ok=True)
+            square(p).save(os.path.join(ENV_OUT, f"{name}.png"))
+            print(f"  {fn} → env/{name}.png")
+        else:
+            square(p).save(os.path.join(OUT, f"px_{name}.png"))
+            print(f"  {fn} → px_{name}.png")
     return names
 
 
@@ -138,6 +147,11 @@ def main():
             process(fn)
         except Exception as e:
             print(f"  {fn} 失敗：{e}")
+    envs = sorted(n for n in ENV | {"grass"} if os.path.exists(os.path.join(ENV_OUT, f"{n}.png")))
+    os.makedirs(ENV_OUT, exist_ok=True)
+    with open(os.path.join(ENV_OUT, "env.json"), "w", encoding="utf-8") as f:
+        json.dump(envs, f)
+    print(f"env.json：{envs}")
     have = sorted(n for n in KNOWN if os.path.exists(os.path.join(OUT, f"px_{n}.png")))
     with open(os.path.join(OUT, "px.json"), "w", encoding="utf-8") as f:
         json.dump(have, f)
