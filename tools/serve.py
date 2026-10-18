@@ -28,8 +28,17 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def end_headers(self):
-        self.send_header("Cache-Control", "no-store")
+        # 程式不快取（改完重新整理就生效）；音樂檔可以快取，避免每次切歌重新下載
+        audio = self.path.split("?")[0].lower().endswith((".mp3", ".ogg", ".m4a", ".wav"))
+        self.send_header("Cache-Control", "max-age=3600" if audio else "no-store")
         super().end_headers()
+
+    def handle(self):
+        # 瀏覽器切歌時會中斷下載，不用印一大串錯誤
+        try:
+            super().handle()
+        except (ConnectionResetError, BrokenPipeError, ConnectionAbortedError):
+            pass
 
 
 if __name__ == "__main__":

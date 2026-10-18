@@ -652,8 +652,12 @@ class Arena extends Phaser.Scene {
     const nearBoss = this.enemies.find(e => e.T.boss && e.aggro && e.hp > 0 && d2(e.x, e.y, this.P.x, this.P.y) < 1600 * 1600);
     setIntensity(nearBoss ? (nearBoss.T.final ? 2 : 1) : 0);
     // 一般戰鬥：附近有追著你的妖獸，離開戰鬥 4 秒後才換回探索
-    if (this.enemies.some(e => e.aggro && e.hp > 0 && !e.T.dummy && d2(e.x, e.y, this.P.x, this.P.y) < 700 * 700)) this.combatUntil = this.t + 4;
-    setBgmMode(nearBoss ? (nearBoss.T.final ? 2 : 1) : this.t < (this.combatUntil || 0) ? 3 : 0);
+    if (this.enemies.some(e => e.aggro && e.hp > 0 && !e.T.dummy && d2(e.x, e.y, this.P.x, this.P.y) < 700 * 700)) {
+      this.combatUntil = this.t + 6;
+      if (this.combatSince == null) this.combatSince = this.t;
+    } else if (this.t >= (this.combatUntil || 0)) this.combatSince = null;
+    const fighting = this.combatSince != null && this.t - this.combatSince > 1;
+    setBgmMode(nearBoss ? (nearBoss.T.final ? 2 : 1) : fighting ? 3 : 0);
     this.hudT -= dt;
     if (this.hudT <= 0) { this.hudT = 1 / 15; hud.update(this); }
   }
@@ -698,7 +702,7 @@ class Arena extends Phaser.Scene {
     if (this.decoy && (this.decoy.t -= dt) <= 0) { this.vfx.flash(this.decoy.x, this.decoy.y, 90, 0x9fd8ff, 200); this.decoy.sprite.destroy(); this.decoy = null; }
     this.updateChain();
     if (JD(k.M)) hud.toast(toggleMute() ? '已靜音' : '已開啟聲音', '#999');
-    if (JD(k.B)) hud.toast(toggleBgm() ? '背景音樂：開' : '背景音樂：關', '#999');
+    if (JD(k.B)) hud.toast(toggleMusic() ? '背景音樂：開' : '背景音樂：關', '#999');
 
     // 閃避
     let mx = (k.D.isDown || k.RIGHT.isDown) - (k.A.isDown || k.LEFT.isDown);
@@ -1941,7 +1945,10 @@ const hud = {
 
 // 外部背景音樂（自用，assets/audio/ 不上傳）：
 //   bgm_explore.* 探索、bgm_battle.* 妖王戰、bgm_final.* 決戰；只有一個檔案時全程播它
-let bgmEl = null, bgmTracks = null, bgmMode = -1;
+// 每首歌一個 Audio，切換時交叉淡入淡出；切回來會從上次的位置繼續，不會重新下載
+let bgmTracks = null, bgmMode = -1, bgmFader = null;
+const bgmEls = {};
+const BGM_VOL = 0.45;
 async function startBgmFile() {
   if (bgmTracks) return;
   let files = [];
@@ -1952,22 +1959,38 @@ async function startBgmFile() {
   // 0 探索、1 夜王、2 決戰、3 一般戰鬥
   bgmTracks = [find('bgm_explore') || any, find('bgm_battle') || find('bgm_explore') || any, find('bgm_final') || find('bgm_battle') || any, find('bgm_combat') || find('bgm_explore') || any];
   toggleBgm(); // 關掉合成音樂
-  const kick = () => { if (bgmEl) bgmEl.play().catch(() => {}); };
+  const kick = () => { const el = bgmEls[bgmTracks[bgmMode]]; if (el && el.paused && !bgmMuted) el.play().catch(() => {}); };
   window.addEventListener('pointerdown', kick, { once: true }); window.addEventListener('keydown', kick, { once: true });
-  window.addEventListener('keydown', ev => { if (bgmEl && (ev.key === 'b' || ev.key === 'B')) bgmEl.paused ? bgmEl.play() : bgmEl.pause(); });
   setBgmMode(0);
+}
+let bgmMuted = false;
+// B 鍵：有音樂檔時開關音樂檔，沒有時開關合成音樂
+function toggleMusic() {
+  if (!bgmTracks) return toggleBgm();
+  bgmMuted = !bgmMuted;
+  const m = bgmMode; bgmMode = -1; setBgmMode(m);
+  return !bgmMuted;
 }
 function setBgmMode(m) {
   if (!bgmTracks || m === bgmMode) return;
-  const file = bgmTracks[m];
   bgmMode = m;
-  if (bgmEl && bgmEl.src.endsWith(encodeURI(file))) return;
-  const old = bgmEl;
-  bgmEl = new Audio('assets/audio/' + file); bgmEl.loop = true; bgmEl.volume = 0;
-  bgmEl.play().catch(() => {});
-  // 交叉淡入淡出 1 秒
-  let k = 0;
-  const iv = setInterval(() => { k += 0.1; bgmEl.volume = Math.min(0.45, 0.45 * k); if (old) old.volume = Math.max(0, 0.45 * (1 - k)); if (k >= 1) { clearInterval(iv); if (old) old.pause(); } }, 100);
+  const file = bgmTracks[m];
+  if (!bgmEls[file]) { const el = new Audio('assets/audio/' + file); el.loop = true; el.volume = 0; el.preload = 'auto'; bgmEls[file] = el; }
+  const cur = bgmEls[file];
+  if (cur.paused && !bgmMuted) cur.play().catch(() => {});
+  // 單一淡入淡出迴圈：目前的歌往 BGM_VOL，其他往 0，降到 0 就暫停（保留位置）
+  if (bgmFader) return;
+  bgmFader = setInterval(() => {
+    let done = true;
+    for (const [f, el] of Object.entries(bgmEls)) {
+      const want = f === bgmTracks[bgmMode] && !bgmMuted ? BGM_VOL : 0;
+      const v = el.volume + Math.sign(want - el.volume) * 0.045;
+      el.volume = Math.abs(want - el.volume) <= 0.045 ? want : Math.min(1, Math.max(0, v));
+      if (el.volume === 0 && !el.paused) el.pause();
+      if (el.volume !== want) done = false;
+    }
+    if (done) { clearInterval(bgmFader); bgmFader = null; }
+  }, 100);
 }
 
 // ---------- 職業選擇 ----------
