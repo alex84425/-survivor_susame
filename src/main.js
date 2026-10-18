@@ -43,6 +43,7 @@ function glyph(scene, key, ch, size, fill, stroke, font, textColor = '#fff') {
 
 // 圓框 + 圖片；圖片沒載到時退回文字
 function portrait(scene, key, img, size, fill, stroke, ch, ring = 2) {
+  if (scene.textures.exists('img_px_' + img)) img = 'px_' + img;
   if (!scene.textures.exists('img_' + img)) return glyph(scene, key, ch, size, fill, stroke, Math.round(size * 0.55), stroke);
   canvasTex(scene, key, size, size, c => {
     if (fill) {
@@ -51,6 +52,7 @@ function portrait(scene, key, img, size, fill, stroke, ch, ring = 2) {
       c.lineWidth = ring; c.strokeStyle = stroke; c.stroke();
     }
     const src = scene.textures.get('img_' + img).getSourceImage();
+    c.imageSmoothingEnabled = !img.startsWith('px_');
     const pad = fill ? size * 0.12 : 0;
     c.drawImage(src, pad, pad, size - pad * 2, size - pad * 2);
   });
@@ -151,6 +153,11 @@ class Main extends Phaser.Scene {
 
   preload() {
     for (const k of IMAGES) if (!this.textures.exists('img_' + k)) this.load.image('img_' + k, `assets/img/${k}.png`);
+    // 像素圖清單（tools/cutout.py 產生），有的話優先使用
+    this.load.json('pxlist', 'assets/img/px.json');
+    this.load.on('filecomplete-json-pxlist', (_k, _t, list) => {
+      for (const k of list || []) if (!this.textures.exists('img_px_' + k)) this.load.image('img_px_' + k, `assets/img/px_${k}.png`);
+    });
   }
 
   create() {

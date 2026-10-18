@@ -28,6 +28,10 @@ python -m http.server 8770
 | Z / X / C | 在宗門範圍內購買功法神通 |
 | M / B | 靜音 / 開關背景音樂 |
 
+## 換成像素妖獸圖
+
+照 [tools/PROMPTS.md](tools/PROMPTS.md) 用 Gemini 生圖，存到 `assets/raw/`，再執行 `python tools/cutout.py`。
+
 ## 結構
 
 - `src/data.js`：五行、境界、神通、妖獸、名稱產生器

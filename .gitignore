@@ -1,1 +1,3 @@
 tools/raw/
+assets/raw/*
+!assets/raw/.gitkeep
