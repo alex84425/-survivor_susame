@@ -220,7 +220,7 @@ export const BOONS = {
 // 升級成長（在篝火用靈石升級）
 export const LEVEL = {
   cost: lv => Math.round(60 + 45 * (lv - 1) + 6 * (lv - 1) ** 2),
-  hp: 0.07,   // 每級肉身 +7%
-  dmg: 0.06,  // 每級傷害 +6%
+  hp: 0.04,   // 每級肉身 +4%（土屬性另加）
+  dmg: 0.03,  // 每級傷害 +3%（屬性補正另加）
   max: 20,
 };

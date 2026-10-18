@@ -71,3 +71,45 @@ html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden; col
 #choice .copt .n { font-size: 16px; font-weight: bold; }
 #choice .copt .d { font-size: 12px; color: #b9b2a2; margin-top: 4px; }
 #v3hud.choosing #prompt { bottom: 250px; }
+
+/* 屬性、經脈、連擊 */
+#attrs { font-size: 12px; margin-top: 3px; text-shadow: 0 0 3px #000; letter-spacing: 1px; }
+#boons .gf { display: inline-block; margin: 2px 4px 0 0; padding: 0 5px; border: 1px solid #6b5aa0; border-radius: 4px; color: #d8c8ff; background: rgba(20,14,40,.7); }
+.slot .pips { position: absolute; right: 6px; top: 6px; display: flex; gap: 3px; }
+.slot .pips i { width: 7px; height: 7px; border-radius: 50%; border: 1px solid #ffd98a; }
+.slot .pips i.on { background: #ffd98a; }
+#combo { position: absolute; right: 24px; top: 46%; text-align: right; text-shadow: 0 0 6px #000; }
+#combo b { display: block; font-size: 44px; color: #ffd98a; line-height: 1; }
+#combo span { font-size: 13px; color: #e8dcc0; }
+
+/* 篝火介面 */
+#bonfire { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(900px, 96vw); max-height: 88vh; display: flex; flex-direction: column; background: rgba(14,12,10,.96); border: 1px solid #8a5a2a; border-radius: 12px; box-shadow: 0 0 40px rgba(255,140,40,.25); color: #e8e0d0; font-size: 14px; z-index: 30; }
+#bonfire .bfhead { padding: 10px 14px; border-bottom: 1px solid #3a2a18; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+#bonfire .bfhead b { color: #ff9a3c; font-size: 18px; }
+#bonfire .close { margin-left: auto; }
+#bonfire .bftabs { display: flex; gap: 6px; padding: 8px 14px 0; }
+#bonfire .bftabs button.on { background: #6b4a20; color: #ffd98a; border-color: #ffb050; }
+#bonfire .bfbody { padding: 10px 14px 14px; overflow-y: auto; }
+#bonfire h3 { color: #ffd98a; font-size: 15px; margin: 10px 0 6px; }
+#bonfire button { background: #2a2218; color: #e8e0d0; border: 1px solid #6b5a2e; border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; font-size: 13px; }
+#bonfire button:hover:not([disabled]) { background: #4a3a20; }
+#bonfire button[disabled] { opacity: .4; cursor: default; }
+#bonfire .small { font-size: 12px; color: #a8a090; }
+#bonfire .attrs { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+#bonfire .attr { border: 1px solid; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+#bonfire .attr .an { display: flex; justify-content: space-between; font-size: 15px; }
+#bonfire .attr .an b { font-size: 20px; }
+#bonfire .skrow, #bonfire .gfrow { border: 1px solid #3a3020; border-left: 4px solid #6b5a2e; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
+#bonfire .skrow.on { background: rgba(255,200,100,.06); }
+#bonfire .tag { font-size: 11px; color: #c8b890; border: 1px solid #5a4a2a; border-radius: 4px; padding: 0 5px; margin-left: 4px; }
+#bonfire .tag.eq { color: #ffd98a; border-color: #ffb050; }
+#bonfire .gfs { display: flex; gap: 6px; flex-wrap: wrap; }
+#bonfire .gf { font-size: 12px; padding: 1px 7px; border-radius: 4px; border: 1px solid #6b5aa0; color: #d8c8ff; background: rgba(40,30,80,.35); }
+#bonfire .gf.innate { border-color: #a08040; color: #ffd98a; background: rgba(80,60,20,.35); }
+#bonfire .gf.empty { border-style: dashed; color: #6a6070; background: none; }
+#bonfire .gf a { color: #ff9090; cursor: pointer; margin-left: 4px; }
+#bonfire .btns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+#bonfire .mers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+#bonfire .mer { border: 1px solid #6b5aa0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 4px; min-height: 70px; }
+#bonfire .mer.empty { border-style: dashed; color: #6a6070; align-items: center; justify-content: center; }
+@media (max-width: 600px) { #bonfire .mers { grid-template-columns: 1fr; } }

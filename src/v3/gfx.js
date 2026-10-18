@@ -122,6 +122,10 @@ export function makeTextures(scene) {
     c.beginPath(); c.arc(w / 2, h / 2, 4, 0, Math.PI * 2); c.stroke();
     c.beginPath(); c.arc(w / 2, h / 2, 8, 0, Math.PI * 2); c.stroke();
   });
+  canvasTex(scene, 'ice', 24, 10, (c, w, h) => {
+    const gr = c.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, 'rgba(160,220,255,.4)'); gr.addColorStop(1, '#ffffff');
+    c.fillStyle = gr; c.beginPath(); c.moveTo(w, h / 2); c.lineTo(2, 1); c.lineTo(5, h / 2); c.lineTo(2, h - 1); c.closePath(); c.fill();
+  });
   canvasTex(scene, 'rock3', 40, 36, c => {
     c.fillStyle = '#8a6136'; c.strokeStyle = '#3d2a12'; c.lineWidth = 2;
     c.beginPath(); c.moveTo(6, 10); c.lineTo(18, 2); c.lineTo(32, 6); c.lineTo(38, 20); c.lineTo(28, 34); c.lineTo(10, 32); c.lineTo(2, 20); c.closePath();
