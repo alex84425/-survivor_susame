@@ -3,6 +3,7 @@ import { sfx, initAudio, toggleMute, toggleBgm, setIntensity } from '../sfx.js';
 import { ELEMS, ELEM_CSS, ELEM_HEX, elemMult, PX_FACE } from '../data.js';
 import { CLASSES, ENEMIES } from './kits.js';
 import { preloadImages, makeTextures, unitTex } from './gfx.js';
+import { preloadVfx, Vfx } from './vfx.js';
 
 const W = 4000;
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -15,7 +16,7 @@ const $ = id => document.getElementById(id);
 class Arena extends Phaser.Scene {
   constructor() { super('arena'); }
   init(data) { this.clsKey = (data && data.cls) || window.__cls || '金'; }
-  preload() { preloadImages(this); }
+  preload() { preloadImages(this); preloadVfx(this); }
 
   create() {
     makeTextures(this);
@@ -24,7 +25,8 @@ class Arena extends Phaser.Scene {
 
     this.cameras.main.setBounds(0, 0, W, W);
     this.add.tileSprite(0, 0, W, W, 'bg3').setOrigin(0).setDepth(-10);
-    for (let i = 0; i < 260; i++) this.add.circle(rand(0, W), rand(0, W), rand(6, 22), 0x232a36, rand(0.4, 0.8)).setDepth(-9);
+    for (let i = 0; i < 260; i++) this.add.circle(rand(0, W), rand(0, W), rand(6, 22), 0x1c222c, rand(0.4, 0.8)).setDepth(-9);
+    this.vfx = new Vfx(this);
     this.tele = this.add.graphics().setDepth(1);
     this.fx = this.add.graphics().setDepth(6);
     this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,SHIFT,Q,E,R,F,ENTER,M,B');
@@ -41,8 +43,11 @@ class Arena extends Phaser.Scene {
 
     this.initPlayer();
     this.cameras.main.startFollow(this.P.sprite, true, 0.12, 0.12);
+    // 玩家身邊的光，讓夜戰有光影
+    this.pLight = this.vfx.glow(this.P, 520, 0xffe0b0, 0.14).setDepth(-8);
     this.bonfire = { x: 2000, y: 2000 };
     this.add.image(2000, 2000, 'bonfire3').setDepth(1);
+    this.vfx.glow(this.bonfire, 420, 0xff9a3c, 0.35).setDepth(-8);
     this.spawnAll();
     hud.start(this);
     hud.toast(`主修：${this.P.elem}・${this.P.cls.name}。左鍵普攻、右鍵戰技、Q 大招、空白閃避、R 丹藥、F 處決或篝火`);
@@ -146,7 +151,8 @@ class Arena extends Phaser.Scene {
     if (P.dashT > 0) {
       P.dashT -= dt;
       P.x += P.dvx * dt; P.y += P.dvy * dt;
-      this.part(P.x, P.y, 0, 0, ELEM_HEX[P.elem], 10, 0.2);
+      P.ghostT = (P.ghostT || 0) - dt;
+      if (P.ghostT <= 0) { P.ghostT = 0.025; this.vfx.ghost(P.sprite, ELEM_HEX[P.elem]); }
     } else if (P.stunT <= 0 && P.rootT <= 0 && (mx || my)) {
       let mul = P.act ? P.act.move : 1;
       if (P.charge >= 0) mul = Math.min(mul, C.basic.move);
@@ -155,7 +161,13 @@ class Arena extends Phaser.Scene {
     }
     P.x = clamp(P.x, 20, W - 20); P.y = clamp(P.y, 20, W - 20);
     P.sprite.setPosition(P.x, P.y).setFlipX(Math.cos(this.aim) * (PX_FACE[C.img] || 1) < 0);
-    P.sprite.setAlpha(P.inv > 0 ? 0.55 : 1);
+    P.sprite.setAlpha(P.inv > 0 ? 0.6 : 1);
+    // 程序動畫：待機呼吸、移動晃動、受擊壓扁、出招前傾
+    P.sq = (P.sq || 0) * Math.pow(0.0005, dt); P.lean = (P.lean || 0) * Math.pow(0.001, dt);
+    const moving = (mx || my) && P.dashT <= 0;
+    const bob = moving ? Math.sin(this.t * 16) * 0.05 : Math.sin(this.t * 3) * 0.02;
+    P.sprite.setScale(1 + P.sq, 1 - P.sq + bob).setRotation((moving ? Math.sin(this.t * 8) * 0.07 : 0) + P.lean * Math.sign(Math.cos(this.aim) || 1));
+    this.pLight.setPosition(P.x, P.y);
 
     // 動作
     if (P.act) {
@@ -219,6 +231,7 @@ class Arena extends Phaser.Scene {
       wind: s.wind, rec: s.rec, move: C.basic.move, combo: true, ang, armor: P.elem === '土',
       fire: () => {
         if (s.lunge) { P.act.lungeT = 0.08; P.act.lungeV = s.lunge / 0.08; }
+        P.lean = s.heavy ? 0.3 : 0.18; P.sq = s.heavy ? 0.12 : 0.06;
         this.slashFx(P.x, P.y, ang, s.range, s.half, ELEM_HEX[P.elem], s.heavy);
         const n = this.hitArc(P.x, P.y, ang, s.range, s.half, s.dmg, { poise: s.poise, basic: true, heavy: s.heavy, kb: s.heavy ? 220 : 90 });
         sfx.shoot(P.elem);
@@ -289,6 +302,7 @@ class Arena extends Phaser.Scene {
         this.startAct({ wind: 0.35, rec: 0.55, move: 0.1, armor: true, fire: () => {
           this.hitCircle(P.x, P.y, 160, S.dmg, { poise: S.poise, kb: 380, heavy: true });
           this.ringFx(P.x, P.y, 160, ELEM_HEX['土']);
+          this.vfx.dirt(P.x, P.y, 18); this.vfx.smoke(P.x, P.y, 6); this.vfx.punch(0.04);
           this.cameras.main.shake(160, 0.006);
           sfx.slam(); this.hitstop = 0.06;
         } });
@@ -362,7 +376,9 @@ class Arena extends Phaser.Scene {
     e.hp -= dmg;
     if (e.T.dummy) { this.dps.push([this.t, dmg]); e.hp = e.maxHp; }
     e.flash = 0.07; e.sprite.setTintFill(0xffffff);
-    this.burst(e.x, e.y, ELEM_HEX[P.elem], 3, 150, 2.5, 0.25);
+    e.sq = o.heavy ? 0.22 : 0.12;
+    this.vfx.hit(e.x, e.y, ELEM_HEX[P.elem], o.heavy || crit);
+    if (o.heavy || crit) this.vfx.punch(o.exec ? 0.07 : 0.025);
     sfx.hit();
     if (!e.aggro) this.alert(e);
     if (o.poise && e.stagT <= 0) {
@@ -401,7 +417,7 @@ class Arena extends Phaser.Scene {
     P.inv = 0.5;
     e.stagT = 0;
     this.hurtE(e, dmg, { exec: true, heavy: true });
-    this.burst(e.x, e.y, 0xffd24a, 30, 300, 4, 0.6);
+    this.vfx.execute(e.x, e.y);
     this.popText(e.x, e.y - e.r - 34, '處決', '#ff5050', 28);
     this.hitstop = 0.18;
     this.cameras.main.shake(220, 0.01);
@@ -419,8 +435,12 @@ class Arena extends Phaser.Scene {
 
   kill(e) {
     e.hp = 0;
-    e.sprite.destroy();
-    this.burst(e.x, e.y, ELEM_HEX[e.elem], e.T.boss ? 60 : 16, e.T.boss ? 340 : 200, 3.5, 0.7);
+    const sp = e.sprite;
+    sp.setTintFill(0xffffff);
+    this.tweens.add({ targets: sp, alpha: 0, scaleX: 1.4, scaleY: 0.2, duration: 260, ease: 'Cubic.In', onComplete: () => sp.destroy() });
+    this.vfx.sparks(e.x, e.y, ELEM_HEX[e.elem], e.T.boss ? 30 : 14);
+    this.vfx.smoke(e.x, e.y, e.T.boss ? 10 : 4);
+    this.vfx.flash(e.x, e.y, e.T.boss ? 260 : 90, ELEM_HEX[e.elem], 260);
     sfx.kill();
     if (e.T.boss) { hud.banner('妖王伏誅'); sfx.bossDie(); }
   }
@@ -437,6 +457,8 @@ class Arena extends Phaser.Scene {
       P.mp = Math.min(P.maxMp, P.mp + 30);
       if (src && src.hp > 0) { this.stagger(src); src.freezeT = 1.5; }
       this.popText(P.x, P.y - 40, '彈反', '#7fd0ff', 24);
+      this.vfx.sigil(P.x, P.y, 70, 0x7fd0ff, 500);
+      this.vfx.hit(P.x + Math.cos(this.aim) * 20, P.y + Math.sin(this.aim) * 20, 0xbfe8ff, true);
       this.ringFx(P.x, P.y, 60, ELEM_HEX['水']);
       this.hitstop = 0.12;
       sfx.craft();
@@ -444,6 +466,8 @@ class Arena extends Phaser.Scene {
     }
     const dr = P.armorT > 0 ? 0.3 : 1;
     P.hp -= dmg * dr;
+    P.sq = 0.28;
+    this.vfx.hit(P.x, P.y, 0xff3030, true);
     this.cameras.main.shake(120, 0.005);
     sfx.hurt();
     const armored = P.armorT > 0 || (P.act && P.act.armor);
@@ -461,6 +485,8 @@ class Arena extends Phaser.Scene {
     P.critNext = true;
     P.mp = Math.min(P.maxMp, P.mp + 10);
     this.popText(P.x, P.y - 44, '神識・完美閃避', '#c0a0ff', 20);
+    this.vfx.ring(P.x, P.y, 140, 0xb090ff, 500);
+    this.vfx.flash(P.x, P.y, 160, 0x9a70ff, 300);
     sfx.slow();
   }
 
@@ -493,7 +519,8 @@ class Arena extends Phaser.Scene {
       for (const k in e.cds) e.cds[k] -= dt;
       if (e.burn > 0) {
         e.burnT -= dt; e.burnTick -= dt;
-        if (e.burnTick <= 0) { e.burnTick = 0.5; e.hp -= e.burn * 1.5; this.part(e.x + rand(-8, 8), e.y - 10, 0, -40, 0xff6a3d, 3, 0.4); if (e.hp <= 0) { this.kill(e); continue; } }
+        if (e.burnTick <= 0) { e.burnTick = 0.5; e.hp -= e.burn * 1.5; if (e.hp <= 0) { this.kill(e); continue; } }
+        if (Math.random() < 0.25 * e.burn) this.vfx.flame(e.x + rand(-e.r, e.r) * 0.6, e.y + rand(-e.r, e.r) * 0.4);
         if (e.burnT <= 0) e.burn = 0;
       }
       if (e.T.dummy) { e.sprite.setPosition(e.x, e.y); continue; }
@@ -552,6 +579,13 @@ class Arena extends Phaser.Scene {
       }
       e.x = clamp(e.x, 20, W - 20); e.y = clamp(e.y, 20, W - 20);
       e.sprite.setPosition(e.x, e.y);
+      e.sq = (e.sq || 0) * Math.pow(0.002, dt);
+      let ant = 0;
+      if (e.atk && e.atk.phase === 'wind') ant = clamp(e.atk.t / e.atk.wind, 0, 1);
+      if (e.atk && e.atk.phase === 'dash') e.sprite.setScale(1.25, 0.85);
+      else e.sprite.setScale((1 + e.sq) * (1 + 0.1 * ant), (1 - e.sq) * (1 + 0.1 * ant + Math.sin(this.t * 4 + e.x) * 0.02));
+      e.sprite.setRotation(ant ? -Math.cos(e.atk.ang) * 0.12 * ant : 0);
+      if (ant > 0.7 && Math.random() < 0.3) this.part(e.x + rand(-e.r, e.r), e.y + rand(-e.r, e.r), 0, 0, 0xff4040);
       const face = Math.abs(vx) > 5 ? vx : dx, fc = PX_FACE[e.T.img] || 0;
       if (fc) e.sprite.setFlipX(face * fc < 0);
     }
@@ -593,7 +627,8 @@ class Arena extends Phaser.Scene {
       case 'arc': {
         const dd = Math.sqrt(d2(P.x, P.y, e.x, e.y));
         if (dd < st.range + P.r && angDiff(Math.atan2(P.y - e.y, P.x - e.x), a.ang) < st.half) this.hitPlayer(st.dmg, e);
-        this.slashFx(e.x, e.y, a.ang, st.range, st.half, 0xff4040, false);
+        this.vfx.claw(e.x, e.y, a.ang, st.range);
+        e.sq = -0.15;
         break;
       }
       case 'line':
@@ -603,7 +638,7 @@ class Arena extends Phaser.Scene {
         const cx = st.at === 'self' ? e.x : a.tx, cy = st.at === 'self' ? e.y : a.ty;
         if (d2(P.x, P.y, cx, cy) < (st.R + P.r) ** 2) this.hitPlayer(st.dmg, e);
         this.ringFx(cx, cy, st.R, 0xff4040);
-        if (st.rock) this.burst(cx, cy, 0x8a6136, 14, 240, 3, 0.5);
+        this.vfx.dirt(cx, cy, st.rock ? 16 : 10); this.vfx.smoke(cx, cy, 4);
         sfx.slam();
         break;
       }
@@ -641,13 +676,15 @@ class Arena extends Phaser.Scene {
   // ---------- 投射物與區域 ----------
   shootP(o) {
     const p = { pierce: 0, r: 7, hit: new Set(), ...o, vx: Math.cos(o.ang) * o.speed, vy: Math.sin(o.ang) * o.speed };
-    p.sprite = this.add.image(o.x, o.y, o.tex).setDepth(5).setRotation(o.ang).setScale(o.scale || 1);
+    p.sprite = this.add.image(o.x, o.y, o.tex).setDepth(5).setRotation(o.ang).setScale(o.scale || 1).setBlendMode(Phaser.BlendModes.ADD);
+    p.glow = this.vfx.glow(p, (o.r || 8) * 7 * (o.scale || 1), o.trail || ELEM_HEX[this.P.elem], 0.55);
     this.pp.push(p);
   }
 
   shootE(o) {
     const p = { ...o, vx: Math.cos(o.ang) * o.speed, vy: Math.sin(o.ang) * o.speed, life: 3 };
     p.sprite = this.add.image(o.x, o.y, o.tex).setDepth(5).setRotation(o.ang).setScale(o.r / 7);
+    p.glow = this.vfx.glow(p, o.r * 9, o.tex === 'venom' ? 0x8be02c : o.tex === 'web' ? 0xffffff : o.tex === 'wave' ? 0xff80ff : 0xff5030, 0.5);
     this.ep.push(p);
   }
 
@@ -664,20 +701,22 @@ class Arena extends Phaser.Scene {
         }
       }
       p.x += p.vx * dt; p.y += p.vy * dt;
-      p.sprite.setPosition(p.x, p.y);
-      if (p.trail && Math.random() < 0.6) this.part(p.x, p.y, rand(-15, 15), rand(-15, 15), p.trail, p.r * 0.5, 0.2);
+      p.sprite.setPosition(p.x, p.y); p.glow.setPosition(p.x, p.y);
+      if (p.trail) this.part(p.x, p.y, 0, 0, p.trail);
       for (const e of this.enemies) {
         if (e.hp <= 0 || p.hit.has(e) || d2(e.x, e.y, p.x, p.y) > (e.r + p.r) ** 2) continue;
         p.hit.add(e);
         if (p.explode) {
           this.hitCircle(p.x, p.y, p.explode, p.dmg, { poise: p.poise, burn: p.burn, basic: p.basic, heavy: p.heavy, kb: 160 });
           this.ringFx(p.x, p.y, p.explode, ELEM_HEX['火']);
+          this.vfx.flash(p.x, p.y, p.explode * 2, 0xff8a2a, 260); this.vfx.smoke(p.x, p.y, p.heavy ? 6 : 2);
+          for (let i = 0; i < (p.heavy ? 8 : 3); i++) this.vfx.flame(p.x + rand(-p.explode, p.explode) * 0.5, p.y + rand(-p.explode, p.explode) * 0.5);
           if (p.heavy) { this.hitstop = 0.06; this.cameras.main.shake(140, 0.006); }
           sfx.slam();
         } else this.hurtE(e, p.dmg, { poise: p.poise, burn: p.burn, root: p.root, basic: p.basic, heavy: p.heavy, kx: p.x - p.vx, ky: p.y - p.vy, kb: 60 });
         if (--p.pierce < 0) { p.life = 0; break; }
       }
-      if (p.life <= 0) p.sprite.destroy();
+      if (p.life <= 0) { p.sprite.destroy(); p.glow.destroy(); }
     }
     this.pp = this.pp.filter(p => p.life > 0);
   }
@@ -687,12 +726,12 @@ class Arena extends Phaser.Scene {
     for (const p of this.ep) {
       p.life -= dt;
       p.x += p.vx * dt; p.y += p.vy * dt;
-      p.sprite.setPosition(p.x, p.y);
+      p.sprite.setPosition(p.x, p.y); p.glow.setPosition(p.x, p.y);
       if (d2(p.x, p.y, P.x, P.y) < (p.r + P.r) ** 2) {
         if (this.hitPlayer(p.dmg, null) && p.root) { P.rootT = p.root; hud.toast('被蛛網纏住了！', '#f0f0f0'); }
         if (P.inv <= 0 || P.parry > 0) p.life = 0;
       }
-      if (p.life <= 0) p.sprite.destroy();
+      if (p.life <= 0) { p.sprite.destroy(); p.glow.destroy(); }
     }
     this.ep = this.ep.filter(p => p.life > 0);
   }
@@ -701,6 +740,7 @@ class Arena extends Phaser.Scene {
     const P = this.P;
     for (const a of this.areas) {
       const t = a.own === 'e' ? edt : dt;
+      if ((a.kind === 'zone' || a.kind === 'pool') && !a.glow) a.glow = this.vfx.glow(a, a.R * 2.6, a.kind === 'pool' ? 0x6ac020 : a.color, 0.4).setDepth(0);
       switch (a.kind) {
         case 'zone':
           a.life -= t; a.tickT -= t;
@@ -709,7 +749,10 @@ class Arena extends Phaser.Scene {
             this.hitCircle(a.x, a.y, a.R, a.dmg, { poise: a.poise, burn: a.burn, slow: a.slow });
           }
           if (a.slow) for (const e of this.enemies) if (d2(e.x, e.y, a.x, a.y) < a.R * a.R) { e.slowT = 0.3; e.slowF = a.slow; }
-          if (Math.random() < 0.5) { const an = rand(0, Math.PI * 2), rr = rand(0, a.R); this.part(a.x + Math.cos(an) * rr, a.y + Math.sin(an) * rr, 0, rand(-60, -20), a.color, rand(2, 4), 0.6); }
+          if (Math.random() < 0.7) {
+            const an = rand(0, Math.PI * 2), rr = rand(0, a.R) * 0.9, x = a.x + Math.cos(an) * rr, y = a.y + Math.sin(an) * rr;
+            if (a.color === ELEM_HEX['火']) this.vfx.flame(x, y); else this.part(x, y, 0, 0, a.color);
+          }
           if (a.life <= 0) a.dead = true;
           break;
         case 'drop':
@@ -717,8 +760,13 @@ class Arena extends Phaser.Scene {
           if (a.delay <= 0) {
             this.hitCircle(a.x, a.y, a.R, a.dmg, { poise: a.poise, burn: a.burn, heavy: a.meteor, kb: a.meteor ? 300 : 60 });
             this.ringFx(a.x, a.y, a.R, a.color);
-            this.burst(a.x, a.y, a.color, a.meteor ? 50 : 8, a.meteor ? 380 : 140, 3.5, 0.5);
-            if (a.meteor) { this.hitstop = 0.1; this.cameras.main.shake(400, 0.016); sfx.slam(); } else sfx.hit();
+            this.vfx.sparks(a.x, a.y, a.color, a.meteor ? 30 : 6);
+            if (a.meteor) {
+              this.vfx.flash(a.x, a.y, a.R * 3, 0xff8a2a, 500); this.vfx.smoke(a.x, a.y, 14); this.vfx.dirt(a.x, a.y, 24);
+              for (let i = 0; i < 20; i++) this.vfx.flame(a.x + rand(-a.R, a.R) * 0.7, a.y + rand(-a.R, a.R) * 0.7);
+              this.vfx.punch(0.08, 140);
+              this.hitstop = 0.1; this.cameras.main.shake(400, 0.016); sfx.slam();
+            } else { this.vfx.bolt(a.x, a.y, a.color); sfx.hit(); }
             a.dead = true;
           }
           break;
@@ -730,7 +778,7 @@ class Arena extends Phaser.Scene {
         case 'pool':
           a.life -= t; a.tickT -= t;
           if (a.tickT <= 0) { a.tickT = a.tick; if (d2(P.x, P.y, a.x, a.y) < (a.R + P.r) ** 2) this.hitPlayer(a.dmg, null); }
-          if (Math.random() < 0.3) this.part(a.x + rand(-a.R, a.R) * 0.7, a.y + rand(-a.R, a.R) * 0.7, 0, rand(-40, -15), 0x8be02c, 3, 0.6);
+          if (Math.random() < 0.3) this.part(a.x + rand(-a.R, a.R) * 0.7, a.y + rand(-a.R, a.R) * 0.7, 0, 0, 0x8be02c);
           if (a.life <= 0) a.dead = true;
           break;
         case 'fx':
@@ -739,6 +787,7 @@ class Arena extends Phaser.Scene {
           break;
       }
     }
+    for (const a of this.areas) if (a.dead && a.glow) a.glow.destroy();
     this.areas = this.areas.filter(a => !a.dead);
   }
 
@@ -794,7 +843,7 @@ class Arena extends Phaser.Scene {
         case 'drop':
           f.lineStyle(2, a.color, 0.9).strokeCircle(a.x, a.y, a.R);
           f.fillStyle(a.color, 0.3 * (1 - a.delay / a.max)).fillCircle(a.x, a.y, a.R);
-          if (a.sword) f.lineStyle(3, 0xffffff, 0.9).lineBetween(a.x, a.y - 30 - a.delay * 300, a.x, a.y - a.delay * 300);
+          if (a.sword) { f.lineStyle(6, a.color, 0.35).lineBetween(a.x, a.y - 40 - a.delay * 300, a.x, a.y - a.delay * 300); f.lineStyle(2, 0xffffff, 0.95).lineBetween(a.x, a.y - 40 - a.delay * 300, a.x, a.y - a.delay * 300); }
           break;
         case 'ring': f.lineStyle(6, 0xff6060, 0.8).strokeCircle(a.x, a.y, a.r); break;
         case 'pool': g.fillStyle(0x6ac020, 0.28 * Math.min(1, a.life)).fillCircle(a.x, a.y, a.R); break;
@@ -834,16 +883,11 @@ class Arena extends Phaser.Scene {
     f.lineStyle(4, 0x6b2020, 0.8).strokeRect(0, 0, W, W);
   }
 
-  slashFx(x, y, ang, R, half, color) { this.areas.push({ kind: 'fx', arc: true, x, y, R, ang, half, color, life: 0.12, max: 0.12 }); }
-  ringFx(x, y, R, color) { this.areas.push({ kind: 'fx', x, y, R, color, life: 0.3, max: 0.3 }); }
+  slashFx(x, y, ang, R, half, color, heavy) { this.flipSlash = !this.flipSlash; this.vfx.slash(x, y, ang, R, color, heavy, this.flipSlash); }
+  ringFx(x, y, R, color) { this.vfx.ring(x, y, R, color); }
 
-  part(x, y, vx, vy, color, size, life) {
-    if (this.parts.length > 500) return;
-    this.parts.push({ x, y, vx, vy, color, size, life, max: life });
-  }
-  burst(x, y, color, n, speed, size, life) {
-    for (let i = 0; i < n; i++) { const a = rand(0, Math.PI * 2), v = rand(0.3, 1) * speed; this.part(x, y, Math.cos(a) * v, Math.sin(a) * v, color, size, life * rand(0.6, 1)); }
-  }
+  part(x, y, vx, vy, color) { this.vfx.ember(x, y, color); }
+  burst(x, y, color, n) { this.vfx.sparks(x, y, color, Math.min(30, n)); }
   updateParts(dt) {
     const drag = Math.pow(0.05, dt);
     for (const p of this.parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= drag; p.vy *= drag; }
@@ -853,7 +897,8 @@ class Arena extends Phaser.Scene {
   popText(x, y, s, color, size) {
     const t = this.texts[this.textIdx];
     this.textIdx = (this.textIdx + 1) % this.texts.length;
-    t.setText(s).setPosition(x, y).setColor(color).setFontSize(size).setVisible(true).setAlpha(1);
+    t.setText(s).setPosition(x, y).setColor(color).setFontSize(size).setVisible(true).setAlpha(1).setScale(1.6);
+    this.tweens.add({ targets: t, scale: 1, duration: 140, ease: 'Back.Out' });
     t.life = 0.9;
   }
   updateTexts(dt) {

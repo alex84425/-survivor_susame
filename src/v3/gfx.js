@@ -44,9 +44,9 @@ export function unitTex(scene, key, img, size, color, fallback) {
 
 export function makeTextures(scene) {
   canvasTex(scene, 'bg3', 128, 128, c => {
-    c.fillStyle = '#141820'; c.fillRect(0, 0, 128, 128);
-    c.strokeStyle = '#1b2029'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, 128, 128);
-    c.fillStyle = '#1f2533';
+    c.fillStyle = '#0f1218'; c.fillRect(0, 0, 128, 128);
+    c.strokeStyle = '#141820'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, 128, 128);
+    c.fillStyle = '#191e28';
     for (let i = 0; i < 8; i++) c.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
   });
   for (const e of ELEMS) {
