@@ -41,25 +41,28 @@ export const MAX_SKILL_LVL = 8;
 // img：assets/img 下的圖片；face：圖片原本朝向（-1 朝左、1 朝右），用來決定是否翻轉
 // ranged：遠程（shot 決定彈種）；charger：會衝鋒
 const BOSS = { r: 36, hp: 900, speed: 62, dmg: 25, stone: 80, boss: true };
+// moves：招牌技（dash 衝刺、blink 瞬移狐火、web 蛛網定身、pool 毒池、throw 投擲、slam 震地、sting 麻痺毒針）
 export const ENEMY_TYPES = {
-  bat:   { name: '蝠妖',   ch: '蝠', img: 'bat',       r: 12, hp: 13,  speed: 100, dmg: 5,  stone: 1, face: -1 },
-  imp:   { name: '小鬼',   ch: '鬼', img: 'goblin',    r: 12, hp: 18,  speed: 72,  dmg: 6,  stone: 1 },
-  wolf:  { name: '妖狼',   ch: '狼', img: 'wolf',      r: 13, hp: 16,  speed: 125, dmg: 7,  stone: 1 },
-  fox:   { name: '狐妖',   ch: '狐', img: 'fox',       r: 13, hp: 20,  speed: 112, dmg: 7,  stone: 1 },
-  spit:  { name: '毒蛛',   ch: '蛛', img: 'spider',    r: 14, hp: 28,  speed: 58,  dmg: 8,  stone: 2, ranged: true, shot: 'venom' },
-  snake: { name: '蛇妖',   ch: '蛇', img: 'snake',     r: 14, hp: 30,  speed: 78,  dmg: 8,  stone: 2, ranged: true, shot: 'orb' },
-  scorp: { name: '蠍妖',   ch: '蠍', img: 'scorpion',  r: 15, hp: 42,  speed: 55,  dmg: 9,  stone: 2, ranged: true, shot: 'spread' },
-  boar:  { name: '豬妖',   ch: '豬', img: 'boar',      r: 17, hp: 60,  speed: 70,  dmg: 11, stone: 3, charger: true, face: -1 },
-  croc:  { name: '鱷妖',   ch: '鱷', img: 'crocodile', r: 18, hp: 75,  speed: 58,  dmg: 12, stone: 3, charger: true },
-  bear:  { name: '妖熊',   ch: '熊', img: 'bear',      r: 20, hp: 85,  speed: 52,  dmg: 14, stone: 4, charger: true },
-  ogre:  { name: '鬼將',   ch: '將', img: 'ogre',      r: 22, hp: 160, speed: 55,  dmg: 16, stone: 6, charger: true },
+  bat:   { name: '蝠妖',   ch: '蝠', img: 'bat',       r: 12, hp: 13,  speed: 100, dmg: 5,  stone: 1, face: -1, moves: ['dash'], wind: 0.45 },
+  imp:   { name: '小鬼',   ch: '鬼', img: 'goblin',    r: 12, hp: 18,  speed: 72,  dmg: 6,  stone: 1, moves: ['throw'] },
+  wolf:  { name: '妖狼',   ch: '狼', img: 'wolf',      r: 13, hp: 16,  speed: 125, dmg: 7,  stone: 1, moves: ['dash'], wind: 0.55 },
+  fox:   { name: '狐妖',   ch: '狐', img: 'fox',       r: 13, hp: 20,  speed: 112, dmg: 7,  stone: 1, moves: ['blink'] },
+  spit:  { name: '毒蛛',   ch: '蛛', img: 'spider',    r: 14, hp: 28,  speed: 58,  dmg: 8,  stone: 2, ranged: true, shot: 'venom', moves: ['web'] },
+  snake: { name: '蛇妖',   ch: '蛇', img: 'snake',     r: 14, hp: 30,  speed: 78,  dmg: 8,  stone: 2, ranged: true, shot: 'orb', moves: ['pool'] },
+  scorp: { name: '蠍妖',   ch: '蠍', img: 'scorpion',  r: 15, hp: 42,  speed: 55,  dmg: 9,  stone: 2, ranged: true, shot: 'spread', moves: ['sting'] },
+  boar:  { name: '豬妖',   ch: '豬', img: 'boar',      r: 17, hp: 60,  speed: 70,  dmg: 11, stone: 3, charger: true, face: -1, moves: ['dash'] },
+  croc:  { name: '鱷妖',   ch: '鱷', img: 'crocodile', r: 18, hp: 75,  speed: 58,  dmg: 12, stone: 3, charger: true, moves: ['dash', 'pool'] },
+  bear:  { name: '妖熊',   ch: '熊', img: 'bear',      r: 20, hp: 85,  speed: 52,  dmg: 14, stone: 4, charger: true, moves: ['dash', 'slam'] },
+  ogre:  { name: '鬼將',   ch: '將', img: 'ogre',      r: 22, hp: 160, speed: 55,  dmg: 16, stone: 6, charger: true, moves: ['slam', 'dash', 'throw'] },
   boss_dragon:  { ...BOSS, name: '蛟龍王', ch: '龍', img: 'dragon', face: 1 },
   boss_tiger:   { ...BOSS, name: '虎王',   ch: '虎', img: 'tiger', face: -1 },
   boss_lion:    { ...BOSS, name: '獅王',   ch: '獅', img: 'lion' },
   boss_trex:    { ...BOSS, name: '暴龍王', ch: '暴', img: 'trex', face: 1 },
   boss_gorilla: { ...BOSS, name: '猿王',   ch: '猿', img: 'gorilla', face: -1 },
+  // 第三夜的最終妖皇
+  emperor:      { ...BOSS, name: '妖皇・燭龍', ch: '皇', img: 'dragon', face: 1, r: 50, hp: 10000, dmg: 32, stone: 300, final: true },
 };
-export const BOSS_TYPES = Object.keys(ENEMY_TYPES).filter(k => ENEMY_TYPES[k].boss);
+export const BOSS_TYPES = Object.keys(ENEMY_TYPES).filter(k => ENEMY_TYPES[k].boss && !ENEMY_TYPES[k].final);
 
 // 依遊戲分鐘決定妖獸出現權重
 export function spawnTable(gm) {
@@ -99,3 +102,7 @@ const GF_PRE = {
 };
 const GF_SUF = ['訣', '經', '心法', '功', '真解', '寶典'];
 export const randGongfaName = elem => '《' + pick(GF_PRE[elem]) + pick(GF_SUF) + '》';
+
+// 陣營戰：正道 vs 魔道
+const EVIL = ['血煞宗', '合歡宗', '鬼靈門', '天魔宗', '陰羅宗', '萬毒門', '屍魂殿'];
+export const randEvilSect = () => pick(EVIL);
