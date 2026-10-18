@@ -7,9 +7,10 @@ import { Hud } from './ui.js';
 import * as F from './formula.js';
 import { sfx, initAudio, toggleMute, toggleBgm, setIntensity } from './sfx.js';
 
-const WORLD = 4000;
+const WORLD = 9000;
 const CELL = 80;
 const SECT_R = 140;
+const BONFIRE_R = 90;
 const MAX_ENEMIES = 120;
 const params = new URLSearchParams(location.search);
 const DURATION = (parseFloat(params.get('min')) || 30) * 60;
@@ -164,6 +165,43 @@ function makeTextures(scene) {
   });
   portrait(scene, 'stone', 'gem', 14, null, null, '石');
   portrait(scene, 'scroll', 'scroll', 26, null, null, '卷');
+  // 地貌
+  canvasTex(scene, 'deco_grass', 14, 10, c => {
+    c.strokeStyle = '#2a4a2a'; c.lineWidth = 1.5;
+    for (const x of [3, 7, 11]) { c.beginPath(); c.moveTo(x, 10); c.lineTo(x + (x - 7) * 0.4, 2); c.stroke(); }
+  });
+  canvasTex(scene, 'deco_rock', 22, 14, c => {
+    c.fillStyle = '#2b2e36'; c.beginPath(); c.ellipse(11, 8, 10, 6, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#3a3e48'; c.beginPath(); c.ellipse(9, 6, 5, 3, 0, 0, Math.PI * 2); c.fill();
+  });
+  canvasTex(scene, 'deco_tree', 34, 40, c => {
+    c.fillStyle = '#3a2a1a'; c.fillRect(15, 26, 4, 14);
+    c.fillStyle = '#1d3a24'; c.beginPath(); c.arc(17, 16, 15, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#26492e'; c.beginPath(); c.arc(13, 12, 8, 0, Math.PI * 2); c.fill();
+  });
+  // 篝火
+  for (const on of [false, true]) {
+    canvasTex(scene, on ? 'bonfire_on' : 'bonfire_off', 48, 48, c => {
+      c.strokeStyle = '#5a3a1a'; c.lineWidth = 5;
+      c.beginPath(); c.moveTo(8, 42); c.lineTo(40, 30); c.moveTo(40, 42); c.lineTo(8, 30); c.stroke();
+      if (on) {
+        const g = c.createRadialGradient(24, 26, 2, 24, 26, 20);
+        g.addColorStop(0, '#fff6c0'); g.addColorStop(0.4, '#ffb030'); g.addColorStop(1, 'rgba(255,80,0,0)');
+        c.fillStyle = g; c.beginPath(); c.moveTo(24, 4); c.quadraticCurveTo(40, 26, 24, 38); c.quadraticCurveTo(8, 26, 24, 4); c.fill();
+      } else {
+        c.fillStyle = '#555'; c.beginPath(); c.arc(24, 32, 5, 0, Math.PI * 2); c.fill();
+      }
+    });
+  }
+  // 寶箱
+  for (const open of [false, true]) {
+    canvasTex(scene, open ? 'chest_open' : 'chest', 30, 26, c => {
+      c.fillStyle = '#6a3e14'; c.fillRect(2, 10, 26, 14);
+      c.fillStyle = open ? '#2a1a0a' : '#8a5420'; c.fillRect(2, open ? 2 : 4, 26, open ? 8 : 8);
+      c.fillStyle = '#ffd24a'; c.fillRect(13, 12, 4, 6);
+      if (open) { c.fillStyle = 'rgba(255,220,120,.7)'; c.fillRect(6, 8, 18, 3); }
+    });
+  }
   // 落石
   canvasTex(scene, 'rock', 40, 36, (c, w, h) => {
     c.fillStyle = '#8a6136'; c.strokeStyle = '#3d2a12'; c.lineWidth = 2;
@@ -189,19 +227,22 @@ class Main extends Phaser.Scene {
   create() {
     makeTextures(this);
     this.duration = DURATION;
+    this.world = WORLD;
     this.cameras.main.setBounds(0, 0, WORLD, WORLD);
     this.bg = this.add.tileSprite(0, 0, WORLD, WORLD, 'bgtile').setOrigin(0).setDepth(-10);
     this.under = this.add.graphics().setDepth(-5);
     this.fx = this.add.graphics().setDepth(6);
     this.ind = this.add.graphics().setScrollFactor(0).setDepth(20);
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,Q,R,E,F,ONE,TWO,THREE,Z,X,C,ENTER,M,B');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,SHIFT,Q,R,E,F,ONE,TWO,THREE,FOUR,FIVE,Z,X,C,ENTER,M,B');
     // 瀏覽器規定要有使用者操作後才能播放聲音
     this.input.keyboard.on('keydown', initAudio);
     this.input.on('pointerdown', initAudio);
+    this.input.mouse.disableContextMenu();
     this.hud = new Hud();
 
     this.t = 0; this.gm = 0;
     this.enemies = []; this.projs = []; this.areas = []; this.drops = [];
+    this.bonfires = []; this.camps = []; this.engaged = new Set(); this.curSect = null;
     this.sects = []; this.pbs = []; this.nemesis = []; this.pois = []; this.battles = [];
     this.grid = new Map();
     this.spawnAcc = 0; this.bossCount = 0;
@@ -222,9 +263,10 @@ class Main extends Phaser.Scene {
     this.initPlayer();
     this.cameras.main.startFollow(this.P.sprite, true, 0.15, 0.15);
     if (SANDBOX) return this.initSandbox();
-    this.spawnSect(300, 500);
+    this.genWorld();
     this.updatePhase();
-    this.hud.toast(`你是${this.P.lgType}修士。三夜之內湊齊神通，斬殺第三夜的妖皇才能飛昇！`);
+    this.hud.toast(`你是${this.P.lgType}修士。點亮篝火、清剿妖巢湊齊神通，三夜之內斬殺妖皇！`);
+    this.hud.toast('滑鼠瞄準・左右鍵/Q/E 施放神通・空白鍵閃避・F 篝火/互動', '#999');
   }
 
   // ---------- 玩家 ----------
@@ -240,11 +282,11 @@ class Main extends Phaser.Scene {
     else { type = '雜靈根'; ELEMS.forEach(e => lg[e] = 1.0); }
     const P = this.P = {
       x: WORLD / 2, y: WORLD / 2, r: 14, elem: null,
-      hp: 100, maxHp: 100, shield: 30, maxShield: 30, shieldDelay: 0,
+      hp: 150, maxHp: 150, shield: 40, maxShield: 40, shieldDelay: 0,
       speed: 170, S: randi(2, 4), ss: 0, lg, lq: Object.fromEntries(ELEMS.map(e => [e, 0])), lgType: type,
       level: 1, exp: 0, stones: 0, realm: 0, kills: 0,
       skills: [], gongfa: [], weapons: {}, mats: {}, slowT: 0, slowF: 1,
-      meditating: false, slowActive: false, hurtT: 0,
+      meditating: false, slowActive: false, hurtT: 0, dodgeCd: 0, dashT: 0, inv: 0, dvx: 0, dvy: 0,
     };
     P.ss = this.ssMax();
     P.sprite = this.add.image(P.x, P.y, 'player').setDepth(4);
@@ -304,7 +346,8 @@ class Main extends Phaser.Scene {
     this.updatePasserby(dt);
     this.updateBattles(dt);
     this.updatePois(dt);
-    this.updateSects(dt);
+    this.updateBonfires(dt);
+    this.updateCamps(dt);
     this.updateDrops(dt);
     this.updatePlayer(dt);
     this.updateChoice(dt);
@@ -327,90 +370,83 @@ class Main extends Phaser.Scene {
   }
 
   updateInput(dt) {
-    const k = this.keys, P = this.P, JD = Phaser.Input.Keyboard.JustDown;
-    P.meditating = k.SPACE.isDown;
+    const k = this.keys, P = this.P, JD = Phaser.Input.Keyboard.JustDown, ptr = this.input.activePointer;
+    // 滑鼠瞄準（世界座標）
+    ptr.updateWorldPoint(this.cameras.main);
+    this.aim = Math.atan2(ptr.worldY - P.y, ptr.worldX - P.x);
+    const ad = Math.min(520, Math.hypot(ptr.worldX - P.x, ptr.worldY - P.y));
+    this.aimPt = { x: P.x + Math.cos(this.aim) * ad, y: P.y + Math.sin(this.aim) * ad };
+
     let mx = (k.D.isDown || k.RIGHT.isDown) - (k.A.isDown || k.LEFT.isDown);
     let my = (k.S.isDown || k.DOWN.isDown) - (k.W.isDown || k.UP.isDown);
-    if (mx || my) {
-      if (mx) P.sprite.setFlipX(mx < 0);
+    P.dodgeCd -= dt; P.inv -= dt;
+    // 閃避：空白鍵，往移動方向（沒按方向就往滑鼠方向）瞬移，短暫無敵
+    if (JD(k.SPACE) && P.dodgeCd <= 0 && P.dashT <= 0) {
+      const a = mx || my ? Math.atan2(my, mx) : this.aim;
+      P.dvx = Math.cos(a) * 1050; P.dvy = Math.sin(a) * 1050;
+      P.dashT = 0.18; P.inv = 0.32; P.dodgeCd = 0.75;
+      sfx.dash();
+    }
+    if (P.dashT > 0) {
+      P.dashT -= dt;
+      P.x = clamp(P.x + P.dvx * dt, 15, WORLD - 15);
+      P.y = clamp(P.y + P.dvy * dt, 15, WORLD - 15);
+      this.addPart(P.x, P.y, 0, 0, 0xffd98a, 9, 0.18);
+    } else if (mx || my) {
       const l = Math.hypot(mx, my);
-      const sp = P.meditating ? 0 : P.speed * (P.slowT > 0 ? P.slowF : 1);
+      const sp = P.speed * (P.slowT > 0 ? P.slowF : 1) * (this.casting > 0 ? 0.7 : 1);
       P.x = clamp(P.x + mx / l * sp * dt, 15, WORLD - 15);
       P.y = clamp(P.y + my / l * sp * dt, 15, WORLD - 15);
     }
+    P.sprite.setFlipX(Math.cos(this.aim) < 0);
     if (this.duel) this.clampToArena(P, P.r);
     P.sprite.setPosition(P.x, P.y);
 
-    // 神識
+    // 神識時緩：按住 Shift
     const wasSlow = P.slowActive;
-    P.slowActive = k.Q.isDown && P.ss > 1;
+    P.slowActive = k.SHIFT.isDown && P.ss > 1;
     if (P.slowActive && !wasSlow) sfx.slow();
-    if (JD(k.M)) this.hud.toast(toggleMute() ? '已靜音' : '已開啟聲音', '#999');
-    if (JD(k.B)) this.hud.toast(toggleBgm() ? '背景音樂：開' : '背景音樂：關', '#999');
     if (P.slowActive) P.ss -= 12 * dt;
     else P.ss = Math.min(this.ssMax(), P.ss + (2 + P.S * 0.3) * dt);
-    if (JD(k.R)) {
-      if (P.ss >= 15) {
-        P.ss -= 15;
-        const R = 350 + P.S * 40;
-        let n = 0;
-        for (const d of this.drops) if (d2(d.x, d.y, P.x, P.y) < R * R) { d.mag = true; n++; }
-        this.areas.push({ kind: 'flash', x: P.x, y: P.y, R, life: 0.35, max: 0.35, color: 0x8e6cf0 });
-        sfx.sweep();
-        this.hud.toast(`神識掃過，收取 ${n} 件寶物`, '#8e6cf0');
-      } else this.hud.toast('神識不足', '#8e6cf0');
-    }
+    if (JD(k.M)) this.hud.toast(toggleMute() ? '已靜音' : '已開啟聲音', '#999');
+    if (JD(k.B)) this.hud.toast(toggleBgm() ? '背景音樂：開' : '背景音樂：關', '#999');
 
-    // 升級選擇 / 宗門購買
+    // 神通：左鍵、右鍵、Q、E（按住連發）
+    this.castInput = [ptr.leftButtonDown(), ptr.rightButtonDown(), k.Q.isDown, k.E.isDown];
+
+    // 抉擇
     if (this.choice) {
       if (JD(k.ONE)) this.pickChoice(0);
       else if (JD(k.TWO)) this.pickChoice(1);
       else if (JD(k.THREE)) this.pickChoice(2);
-    }
-    if (this.curSect) {
-      if (JD(k.Z)) this.buyShop(0);
-      else if (JD(k.X)) this.buyShop(1);
-      else if (JD(k.C)) this.buyShop(2);
+      else if (JD(k.FOUR)) this.pickChoice(3);
+      else if (JD(k.FIVE)) this.pickChoice(4);
     }
 
-    // 機緣據點（洗靈池 / 煉神爐）優先於路人
-    const ePress = JD(k.E);
+    // F：篝火 > 機緣據點 > 路人
+    const fPress = JD(k.F);
+    const bf = this.bonfires.find(b => d2(b.x, b.y, P.x, P.y) < BONFIRE_R * BONFIRE_R);
+    this.nearBonfire = bf || null;
     let poi = null;
     for (const o of this.pois) if (d2(o.x, o.y, P.x, P.y) < 75 * 75) poi = o;
     this.nearPoi = poi;
-    if (poi && ePress) { this.usePoi(poi); return; }
-
-    // 路人互動
     let near = null, nd = 110 * 110;
     for (const p of this.pbs) {
       const dd = d2(p.x, p.y, P.x, P.y);
       if (dd < nd) { nd = dd; near = p; }
     }
     this.nearPasserby = near;
-    if (near) {
-      if (ePress && near.state === 'feud') this.takeSide(near.battle, near.side, near);
-      else if (JD(k.F) && near.state === 'feud') this.takeSide(near.battle, 1 - near.side, near);
-      else if (ePress && near.state === 'fighting') {
-        near.state = 'ally';
-        this.hud.toast(`<b style="color:${ELEM_CSS[near.elem]}">${near.name}</b> 與你結伴同行`, ELEM_CSS[near.elem]);
-      } else if (JD(k.F) && (near.state === 'fighting' || near.state === 'ally')) {
-        this.makeHostile(near);
-        this.hud.toast(`你向 <b style="color:${ELEM_CSS[near.elem]}">${near.name}</b> 出手！`, '#e05555');
-      }
+    if (!fPress) return;
+    if (bf) return this.restAt(bf);
+    if (poi) return this.usePoi(poi);
+    if (near && near.state === 'feud') this.takeSide(near.battle, near.side);
+    else if (near && near.state === 'fighting') {
+      near.state = 'ally';
+      this.hud.toast(`<b style="color:${ELEM_CSS[near.elem]}">${near.name}</b> 與你結伴同行`, ELEM_CSS[near.elem]);
     }
   }
 
   // ---------- 敵人 ----------
-  spawnEnemies(dt) {
-    if (this.duel) return;
-    this.spawnAcc += dt * (0.5 + this.gm * 0.12);
-    const cap = Math.min(MAX_ENEMIES, 45 + this.gm * 2.2);
-    while (this.spawnAcc >= 1) {
-      this.spawnAcc--;
-      if (this.enemies.length < cap) this.spawnEnemy();
-    }
-  }
-
   // 生成妖王：roam 為夜半遊蕩（可能拖入異空間），否則在結界中央現身
   spawnBoss(type, roam) {
     const P = this.P, Z = this.zone;
@@ -437,9 +473,9 @@ class Main extends Phaser.Scene {
     const night = Math.min(2, Math.floor(this.gm / 10)), tn = this.gm - night * 10;
     if (night !== this.night) {
       this.night = night;
-      const a = rand(0, Math.PI * 2), r = rand(200, 600);
-      const cx = clamp(P.x + Math.cos(a) * r, 900, WORLD - 900), cy = clamp(P.y + Math.sin(a) * r, 900, WORLD - 900);
-      this.zone = { cx, cy, R: 1800, R0: 1800, Rmin: 420 };
+      const a = rand(0, Math.PI * 2), r = rand(600, 1600);
+      const cx = clamp(P.x + Math.cos(a) * r, 2400, WORLD - 2400), cy = clamp(P.y + Math.sin(a) * r, 2400, WORLD - 2400);
+      this.zone = { cx, cy, R: 4300, R0: 4300, Rmin: 650 };
       this.nightFlags = {};
       this.hud.banner(`第${['一', '二', '三'][night]}夜`);
       if (night > 0) this.hud.toast('天雷結界重新展開，新的一夜開始了', '#b090ff');
@@ -478,21 +514,144 @@ class Main extends Phaser.Scene {
       if (ENEMY_TYPES[type].ranged && this.enemies.filter(e => ENEMY_TYPES[e.type].ranged).length >= 5 + gm * 0.4) type = pick(['imp', 'wolf', 'bat']);
     }
     const T = ENEMY_TYPES[type];
-    const elem = at ? at.elem : T.boss || Math.random() < 0.6 ? this.phaseElem : pick(ELEMS);
+    const elem = at && at.elem ? at.elem : T.boss || Math.random() < 0.6 ? this.phaseElem : pick(ELEMS);
+    const tier = at && at.tier || 0, elite = at && at.elite;
     const a = rand(0, Math.PI * 2), R = rand(650, 820);
     const x = clamp(at ? at.x : P.x + Math.cos(a) * R, 20, WORLD - 20), y = clamp(at ? at.y : P.y + Math.sin(a) * R, 20, WORLD - 20);
     // 妖獸少而精：一般妖獸血量 ×1.4（開局）～×2.6（第三夜）；妖王不吃平方成長，避免後期打不動
-    const hp = T.boss ? F.bossHp(T.hp, gm) : F.enemyHp(T.hp, gm);
+    // 黑夜君臨模式：妖獸少很多，血量 ×2.2，營地等級每級再 +35%，精英 ×4
+    const hp = T.boss ? F.bossHp(T.hp, gm) : F.enemyHp(T.hp, gm) * 2.2 * (1 + 0.35 * tier) * (elite ? 4 : 1);
     const e = {
-      type, elem, x, y, r: T.r, hp, maxHp: hp, boss: !!T.boss, final: !!T.final, charger: !!T.charger, moves: T.moves || null, wind: T.wind || 0.7, face: this.textures.exists('img_px_' + T.img) ? PX_FACE[T.img] || 0 : T.face || 0,
-      speed: T.speed * rand(0.9, 1.1) * (1 + gm * 0.01), dmg: F.enemyDmg(T.dmg, gm),
+      type, elem, x, y, r: T.r * (elite ? 1.4 : 1), hp, maxHp: hp, elite, camp: at && at.camp, home: { x, y }, aggro: !!T.boss, sight: T.boss ? 9999 : elite ? 460 : 360, boss: !!T.boss, final: !!T.final, charger: !!T.charger, moves: T.moves || null, wind: T.wind || 0.7, face: this.textures.exists('img_px_' + T.img) ? PX_FACE[T.img] || 0 : T.face || 0,
+      speed: T.speed * rand(0.9, 1.1) * (1 + gm * 0.01), dmg: F.enemyDmg(T.dmg, gm) * (1 + 0.2 * tier) * (elite ? 1.5 : 1),
       realm: Math.min(4, Math.floor(gm / 6)) + (T.boss ? 1 : 0),
       touchCd: 0, slowT: 0, slowF: 1, kx: 0, ky: 0, flash: 0, target: null, retarget: rand(0, 0.5), shootT: rand(1, 3),
-      sprite: this.add.image(x, y, `e_${type}_${elem}`).setDepth(T.boss ? 3 : 2),
+      sprite: this.add.image(x, y, `e_${type}_${elem}`).setDepth(T.boss || elite ? 3 : 2).setScale(elite ? 1.4 : 1),
       duelMinion: !!this.duel,
     };
     this.enemies.push(e);
     return e;
+  }
+
+  // ---------- 大地圖：篝火、妖獸營地、地貌 ----------
+  genWorld() {
+    const P = this.P;
+    // 地貌裝飾（只是讓移動有參照）
+    for (let i = 0; i < 1400; i++) {
+      this.add.image(rand(0, WORLD), rand(0, WORLD), pick(['deco_grass', 'deco_grass', 'deco_rock', 'deco_tree'])).setDepth(-4).setAlpha(rand(0.5, 0.9));
+    }
+    // 用打散的網格放置據點，避免擠在一起
+    const spots = [];
+    const G = 9, cs = WORLD / G;
+    for (let gx = 0; gx < G; gx++) for (let gy = 0; gy < G; gy++) spots.push({ x: (gx + rand(0.2, 0.8)) * cs, y: (gy + rand(0.2, 0.8)) * cs });
+    shuffle(spots);
+    const far = (p, r) => d2(p.x, p.y, P.x, P.y) > r * r;
+    // 篝火：開局身邊一座，其餘散佈
+    this.addBonfire(P.x + 160, P.y - 60);
+    for (const s of spots.splice(0, 22)) if (far(s, 700)) this.addBonfire(s.x, s.y);
+    // 營地：離出生點越遠越強
+    for (const s of spots.splice(0, 46)) {
+      if (!far(s, 650)) continue;
+      const dist = Math.hypot(s.x - P.x, s.y - P.y);
+      this.addCamp(s.x, s.y, Math.min(3, Math.floor(dist / 1300)));
+    }
+  }
+
+  addBonfire(x, y) {
+    const b = { x, y, lit: false, used: false };
+    b.sprite = this.add.image(x, y, 'bonfire_off').setDepth(1);
+    this.bonfires.push(b);
+  }
+
+  // tier 0～3：數量、精英、血量隨 tier 增加
+  addCamp(x, y, tier) {
+    const tab = spawnTable(4 + tier * 7).filter(([k]) => k !== 'ogre' || tier >= 2);
+    const c = { x, y, tier, members: [], cleared: false };
+    const n = randi(3, 4) + tier;
+    for (let i = 0; i < n; i++) {
+      let r = Math.random() * tab.reduce((a, t) => a + t[1], 0), type = tab[0][0];
+      for (const [k, w] of tab) { r -= w; if (r <= 0) { type = k; break; } }
+      const a = rand(0, Math.PI * 2), R = rand(30, 110);
+      c.members.push(this.spawnEnemy(type, { x: x + Math.cos(a) * R, y: y + Math.sin(a) * R, elem: pick(ELEMS), tier, camp: c }));
+    }
+    if (tier >= 1) {
+      const boss = pick(['bear', 'ogre', 'croc', 'boar']);
+      c.members.push(this.spawnEnemy(boss, { x, y, elem: pick(ELEMS), tier, camp: c, elite: true }));
+    }
+    c.chest = this.add.image(x, y + 20, 'chest').setDepth(1).setAlpha(0.85);
+    this.camps.push(c);
+  }
+
+  updateCamps() {
+    for (const c of this.camps) {
+      if (c.cleared || c.members.some(e => e.hp > 0)) continue;
+      c.cleared = true;
+      // 寶箱：神通或功法卷軸 + 靈石 + 材料
+      const g = clamp(this.curGrade() + c.tier, 1, 9);
+      this.spawnDrop('scroll', c.x, c.y, { item: this.randomLoot(g) });
+      for (let i = 0; i < 6 + c.tier * 3; i++) this.spawnDrop('stone', c.x, c.y, { value: 6 * (1 + this.gm * 0.15) * (1 + c.tier) });
+      if (Math.random() < 0.5 + c.tier * 0.15) this.spawnDrop('mat', c.x, c.y, { elem: pick(ELEMS), part: pick(PARTS), grade: clamp(g, 1, 9) });
+      c.chest.setTexture('chest_open');
+      this.burst(c.x, c.y, 0xffd98a, 24, 220, 3, 0.6);
+      this.hud.toast('清空妖獸巢穴，寶箱開啟！', '#ffd98a');
+    }
+  }
+
+  // 隨機一個神通或功法（篝火、寶箱用）
+  randomLoot(g) {
+    const P = this.P;
+    if (Math.random() < 0.5) {
+      const id = pick(SKILL_IDS);
+      const owned = P.skills.find(s => s.id === id);
+      return { kind: owned ? 'up' : 'new', id, n: 1, g };
+    }
+    const elem = pick(ELEMS);
+    return { kind: 'gf', elem, stat: Math.random() < 0.5 ? 'lq' : 'lg', grade: g, name: randGongfaName(elem) };
+  }
+
+  // 少量遊蕩妖獸：在結界內、玩家附近補充
+  spawnEnemies(dt) {
+    if (this.duel) return;
+    this.spawnAcc += dt;
+    if (this.spawnAcc < 12) return;
+    this.spawnAcc = 0;
+    const roam = this.enemies.filter(e => !e.camp && !e.boss).length;
+    if (roam >= 6 + this.gm / 3) return;
+    const { x, y } = this.randomSpot(900, 1300);
+    const n = randi(2, 3), tier = Math.min(3, Math.floor(this.gm / 8));
+    const elem = Math.random() < 0.6 ? this.phaseElem : pick(ELEMS);
+    for (let i = 0; i < n; i++) this.spawnEnemy(undefined, { x: x + rand(-60, 60), y: y + rand(-60, 60), elem, tier });
+  }
+
+  // 在篝火休息：點亮（第一次給一個隨機神通或功法）、回滿、煉器、用靈石升級
+  restAt(b) {
+    const P = this.P;
+    P.hp = P.maxHp; P.shield = P.maxShield;
+    this.burst(b.x, b.y, 0xff9a3c, 20, 160, 3, 0.6);
+    if (!b.lit) {
+      b.lit = true;
+      b.sprite.setTexture('bonfire_on');
+      sfx.item();
+    }
+    this.tryCraft();
+    let lv = 0;
+    while (P.stones >= this.expNext()) {
+      P.stones -= this.expNext();
+      P.level++; lv++;
+      this.pendingChoices++;
+    }
+    if (lv) { sfx.levelup(); this.hud.toast(`在篝火旁打坐，修為精進 ${lv} 級`, '#ffd98a'); }
+    if (!b.used) {
+      b.used = true;
+      const g = this.curGrade();
+      const opts = [this.randomLoot(g), this.randomLoot(g), this.randomLoot(g)];
+      if (!this.openEvent('篝火・點亮機緣（擇一）', opts, 0, 15)) b.used = false;
+    } else if (!lv) this.hud.toast('在篝火旁休息，肉身與護體已回滿', '#ff9a3c');
+  }
+
+  updateBonfires() {
+    // 篝火火光
+    for (const b of this.bonfires) if (b.lit && Math.random() < 0.08) this.addPart(b.x + rand(-8, 8), b.y - 6, rand(-10, 10), rand(-60, -30), pick([0xff9a3c, 0xffd24a]), 2.5, 0.6);
   }
 
   // ---------- 沙盒（百科預覽） ----------
@@ -553,6 +712,9 @@ class Main extends Phaser.Scene {
       // 擊退後慢慢回到原位
       e.x += e.kx * dt; e.y += e.ky * dt; e.kx *= 0.85; e.ky *= 0.85;
     }
+    const d0 = this.enemies[0];
+    if (d0) { this.aim = Math.atan2(d0.y - P.y, d0.x - P.x); this.aimPt = { x: d0.x, y: d0.y }; }
+    this.castInput = [true, true, true, true];
     this.updateSkills(dt);
     this.updateProjectiles(dt);
     this.updateAreas(dt);
@@ -671,30 +833,79 @@ class Main extends Phaser.Scene {
     return best;
   }
 
+  // 仇恨：同時最多 3 隻妖獸（妖王另計）主動進攻，其餘在外圍游走等待
+  updateAggro() {
+    const P = this.P;
+    const list = [];
+    for (const e of this.enemies) {
+      if (e.hp <= 0 || this.frozen(e)) continue;
+      const dd = d2(e.x, e.y, P.x, P.y);
+      if (!e.aggro && dd < e.sight * e.sight) this.alert(e);
+      if (e.aggro && !e.boss) list.push([dd, e]);
+    }
+    list.sort((a, b) => a[0] - b[0]);
+    this.engaged = new Set(list.slice(0, 3).map(x => x[1]));
+  }
+
+  // 驚動一隻妖獸，同營地的一起被驚動
+  alert(e) {
+    if (e.aggro) return;
+    e.aggro = true;
+    if (e.camp) for (const o of e.camp.members) if (o.hp > 0) o.aggro = true;
+  }
+
   updateEnemies(dt) {
     const P = this.P;
+    this.aggroT = (this.aggroT || 0) - dt;
+    if (this.aggroT <= 0) { this.aggroT = 0.4; this.updateAggro(); }
     for (const e of this.enemies) {
       if (e.hp <= 0 || this.frozen(e)) continue;
       let ts = P.slowActive ? this.realmSlow(e.realm) : 1;
       if (e.slowT > 0) { e.slowT -= dt; ts *= e.slowF; }
       e.retarget -= dt;
       if (e.retarget <= 0 || !e.target || e.target.hp <= 0 || e.target.dead || e.target.escaped) { e.retarget = 0.5; e.target = this.pickEnemyTarget(e); }
-      const tg = e.target;
-      const dx = tg.x - e.x, dy = tg.y - e.y, d = Math.hypot(dx, dy) || 1;
-      let mv = e.speed * ts * dt, mx = dx / d, my = dy / d, dashing = false;
-      if (e.boss || e.moves) {
-        const o = this.updateSpecial(e, dt * ts, tg, d);
-        if (o) { mv = o.mv; mx = o.mx; my = o.my; dashing = !!o.dash; }
+      let tg = e.target;
+      // 沒被驚動：在巢穴附近閒晃
+      if (!e.aggro && tg === P) {
+        e.wanderT = (e.wanderT || 0) - dt;
+        if (e.wanderT <= 0) { e.wanderT = rand(2, 4); e.wx = e.home.x + rand(-90, 90); e.wy = e.home.y + rand(-90, 90); }
+        tg = { x: e.wx, y: e.wy, r: 0 };
       }
-      if (ENEMY_TYPES[e.type].ranged) {
-        if (d < 220) mv = -mv; else if (d < 290) mv = 0;
-        e.shootT -= dt * ts;
-        if (e.shootT <= 0 && d < 420 && tg === P) {
-          e.shootT = rand(3.5, 4.5);
-          const ang = Math.atan2(dy, dx), shot = ENEMY_TYPES[e.type].shot;
-          if (shot === 'spread') for (const o of [-0.25, 0, 0.25]) this.shoot({ team: 'foe', x: e.x, y: e.y, ang: ang + o, speed: 210, dmg: e.dmg * 0.45, elem: e.elem, life: 3, r: 6, tex: 'venom', realm: e.realm, spin: 8 });
-          else if (shot === 'orb') this.shoot({ team: 'foe', x: e.x, y: e.y, ang, speed: 320, dmg: e.dmg * 0.6, elem: e.elem, life: 2.5, r: 6, tex: `bb_${e.elem}`, realm: e.realm, trail: ELEM_HEX[e.elem] });
-          else this.shoot({ team: 'foe', x: e.x, y: e.y, ang, speed: 230, dmg: e.dmg * 0.6, elem: e.elem, life: 3, r: 6, tex: 'venom', realm: e.realm, trail: 0x8be02c });
+      const dx = tg.x - e.x, dy = tg.y - e.y, d = Math.hypot(dx, dy) || 1;
+      let mv = e.speed * ts * dt * (e.aggro ? 1 : 0.35), mx = dx / d, my = dy / d, dashing = false;
+      const engaged = e.boss || this.engaged.has(e) || tg !== P;
+      if (e.aggro && tg === P && !engaged) {
+        // 等待中：保持距離繞圈
+        const want = 300;
+        if (d < want - 40) { mx = -mx; my = -my; } else if (d < want + 40) { const t = mx; mx = -my * (e.orbit || 1); my = t * (e.orbit || 1); mv *= 0.5; }
+        if (!e.orbit) e.orbit = Math.random() < 0.5 ? 1 : -1;
+      }
+      // 拉太遠就回巢（妖王除外）
+      if (e.aggro && e.home && !e.boss && d2(e.x, e.y, e.home.x, e.home.y) > 1500 * 1500 && d2(P.x, P.y, e.home.x, e.home.y) > 1200 * 1200) {
+        e.aggro = false; e.act = null; e.hp = e.maxHp;
+      }
+      if (engaged && e.aggro) {
+        if (e.boss || e.moves) {
+          const o = this.updateSpecial(e, dt * ts, tg, d);
+          if (o) { mv = o.mv; mx = o.mx; my = o.my; dashing = !!o.dash; }
+        }
+        const T = ENEMY_TYPES[e.type];
+        if (T.ranged && !e.act) {
+          if (d < 220) mv = -mv; else if (d < 290) mv = 0;
+          e.shootT -= dt * ts;
+          if (e.shootT <= 0 && d < 460 && tg === P) {
+            e.shootT = rand(2.2, 3.2);
+            const ang = Math.atan2(dy, dx), shot = T.shot;
+            if (shot === 'spread') for (const o of [-0.25, 0, 0.25]) this.shoot({ team: 'foe', x: e.x, y: e.y, ang: ang + o, speed: 220, dmg: e.dmg * 0.9, elem: e.elem, life: 3, r: 7, tex: 'venom', realm: e.realm, spin: 8 });
+            else if (shot === 'orb') this.shoot({ team: 'foe', x: e.x, y: e.y, ang, speed: 300, dmg: e.dmg * 1.2, elem: e.elem, life: 2.5, r: 7, tex: `bb_${e.elem}`, realm: e.realm, trail: ELEM_HEX[e.elem] });
+            else this.shoot({ team: 'foe', x: e.x, y: e.y, ang, speed: 240, dmg: e.dmg * 1.2, elem: e.elem, life: 3, r: 7, tex: 'venom', realm: e.realm, trail: 0x8be02c });
+          }
+        } else if (!e.act && tg === P) {
+          // 近戰：走到身邊後出一記有預警的爪擊
+          e.atkCd = (e.atkCd || rand(0.3, 0.8)) - dt * ts;
+          const reach = e.r + P.r + 26;
+          if (d < reach + 10) mv = 0;
+          if (d < reach + 30 && e.atkCd <= 0) { e.atkCd = rand(1.4, 2.0) * (e.boss ? 0.7 : 1); this.startAct(e, 'swipe'); }
         }
       }
       e.x += mx * mv + e.kx * dt;
@@ -717,12 +928,12 @@ class Main extends Phaser.Scene {
       }
       e.x = clamp(e.x, 10, WORLD - 10); e.y = clamp(e.y, 10, WORLD - 10);
       if (this.duel) this.clampToArena(e, e.r);
-      // 接觸傷害
+      // 只有衝刺會撞傷人；打路人仍用接觸傷害
       e.touchCd -= dt * ts;
-      const rr = e.r + tg.r;
-      if (d2(e.x, e.y, tg.x, tg.y) < rr * rr && e.touchCd <= 0) {
+      const rr = e.r + (tg.r || 0);
+      if ((dashing || tg !== P) && tg.hp !== undefined && d2(e.x, e.y, tg.x, tg.y) < rr * rr && e.touchCd <= 0) {
         e.touchCd = 0.9;
-        this.hitTarget(tg, e.dmg * (dashing ? 1.6 : 1), e.elem);
+        this.hitTarget(tg, e.dmg * (dashing ? 1.8 : 1), e.elem);
       }
       e.sprite.setPosition(e.x, e.y);
       if (e.face && Math.abs(mx) > 0.2 && mv > 0) e.sprite.setFlipX(mx * e.face < 0);
@@ -813,6 +1024,13 @@ class Main extends Phaser.Scene {
       case 'blink':
         e.act = { kind, t: 0.55 };
         break;
+      case 'swipe': {
+        // 近戰爪擊：在面前畫出預警圈
+        const a = Math.atan2(P.y - e.y, P.x - e.x), R = e.boss ? e.r + 40 : e.r + 24;
+        e.act = { kind: 'cast', t: e.boss ? 0.7 : 0.6 };
+        this.areas.push({ kind: 'foeslam', x: e.x + Math.cos(a) * (e.r + 22), y: e.y + Math.sin(a) * (e.r + 22), R, delay: e.boss ? 0.6 : 0.5, max: e.boss ? 0.6 : 0.5, dmg: e.dmg * 2 });
+        break;
+      }
       case 'web': {
         // 蛛網：命中會定身
         e.act = { kind: 'cast', t: 0.4 };
@@ -874,7 +1092,7 @@ class Main extends Phaser.Scene {
 
   damagePlayer(dmg) {
     const P = this.P;
-    if (this.over || SANDBOX) return;
+    if (this.over || SANDBOX || P.inv > 0) return;
     P.shieldDelay = 3;
     P.hurtT = 0.12;
     sfx.hurt();
@@ -890,6 +1108,7 @@ class Main extends Phaser.Scene {
     const dmg = base * m * rand(0.9, 1.1);
     e.hp -= dmg;
     if (e.dummy) { this.sbLog.push([this.t, dmg]); e.hp = e.maxHp; }
+    if (!e.isPb && !e.dummy) this.alert(e);
     if (e.sprite && !e.isPb) { e.flash = 0.06; e.sprite.setTintFill(0xffffff); }
     this.dmgText(e.x, e.y - e.r, dmg, m);
     sfx.hit();
@@ -899,7 +1118,11 @@ class Main extends Phaser.Scene {
       const a = Math.atan2(e.y - opt.ky, e.x - opt.kx);
       e.kx += Math.cos(a) * opt.kb; e.ky += Math.sin(a) * opt.kb;
     }
-    if (e.isPb) { if (opt.byPlayer && e.state !== 'fleeing') this.makeHostile(e); return; }
+    if (e.isPb) {
+      if (opt.byPlayer && e.state === 'feud') this.takeSide(e.battle, 1 - e.side);
+      else if (opt.byPlayer && e.state !== 'fleeing') this.makeHostile(e);
+      return;
+    }
     if (e.hp <= 0) this.killEnemy(e);
   }
 
@@ -926,74 +1149,69 @@ class Main extends Phaser.Scene {
     }
   }
 
-  // ---------- 神通 ----------
+  // ---------- 神通：手動施放（左鍵、右鍵、Q、E 對應四個欄位） ----------
   updateSkills(dt) {
-    const P = this.P;
-    for (const s of P.skills) {
+    const P = this.P, inp = this.castInput || [];
+    this.casting = (this.casting || 0) - dt;
+    P.skills.forEach((s, i) => {
       s.t -= dt;
-      if (P.meditating || s.t > 0) continue;
-      const ok = this.castSkill(s);
-      s.t = ok ? this.skillCd(s) : 0.2;
-      if (ok && s.id !== 'wanmu') sfx.shoot(SKILLS[s.id].elem);
-    }
+      if (s.t > 0 || !inp[i] || P.dashT > 0) return;
+      this.castSkill(s);
+      s.t = this.skillCd(s);
+      this.casting = 0.15;
+      if (s.id !== 'wanmu') sfx.shoot(SKILLS[s.id].elem);
+    });
   }
 
   castSkill(s) {
     const P = this.P, d = SKILLS[s.id], elem = d.elem, dmg = this.skillDmg(s), L = s.lvl;
     const sh = F.shape(s.id, L, this.wb(elem)), n = sh.n;
-    const tg = this.nearestTarget(P.x, P.y, 520);
-    const aim = tg ? Math.atan2(tg.y - P.y, tg.x - P.x) : 0;
+    const aim = this.aim || 0, pt = this.aimPt || { x: P.x + 200, y: P.y };
     switch (s.id) {
       case 'gengjin':
-        if (!tg) return false;
         for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.12, speed: 620, dmg, elem, pierce: sh.pierce, life: 1.1, r: 7, tex: `sw_${elem}`, trail: ELEM_HEX[elem] });
         return true;
       case 'wanjian':
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: i / n * Math.PI * 2, speed: 430, dmg, elem, pierce: sh.pierce, life: sh.life, r: 7, tex: `sw_${elem}` });
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + i / n * Math.PI * 2, speed: 430, dmg, elem, pierce: sh.pierce, life: sh.life, r: 7, tex: `sw_${elem}` });
         return true;
       case 'qingteng':
-        if (!tg) return false;
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + rand(-0.5, 0.5), speed: 340, dmg, elem, pierce: sh.pierce, life: 2.2, r: 8, homing: true, slow: 1.5, slowF: 0.45, tex: `leaf_${elem}`, trail: 0x5cc96b });
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.3, speed: 360, dmg, elem, pierce: sh.pierce, life: 2.2, r: 8, homing: true, slow: 1.5, slowF: 0.45, tex: `leaf_${elem}`, trail: 0x5cc96b });
         return true;
       case 'wanmu': {
         let hit = 0;
-        this.areaHit(P.x, P.y, sh.R, e => { this.hurt(e, dmg, elem); hit++; });
-        if (hit) P.hp = Math.min(P.maxHp, P.hp + 0.6 + L * 0.25);
+        this.areaHit(P.x, P.y, sh.R, e => { this.hurt(e, dmg * 2.5, elem); hit++; });
+        P.hp = Math.min(P.maxHp, P.hp + 2 + L + hit);
+        this.areas.push({ kind: 'flash', x: P.x, y: P.y, R: sh.R, life: 0.35, max: 0.35, color: ELEM_HEX[elem] });
         return true;
       }
       case 'xuanbing':
-        if (!tg) return false;
         for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.18, speed: 480, dmg, elem, pierce: sh.pierce, life: 1.1, r: 7, slow: 1.5, slowF: 0.5, tex: `ice_${elem}`, trail: 0xbfe8ff });
         return true;
       case 'hanchao':
         this.areas.push({ kind: 'ring', x: P.x, y: P.y, r: 10, maxR: sh.R, spd: 380, dmg, elem, hit: new Set(), slow: 2, color: ELEM_HEX[elem] });
         return true;
       case 'huoqiu':
-        if (!tg) return false;
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + i * 0.25, speed: 420, dmg, elem, pierce: sh.pierce, life: 1.4, r: 9, explode: sh.R, tex: `fire_${elem}`, trail: 0xff8a2a, spin: 10 });
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.2, speed: 440, dmg, elem, pierce: sh.pierce, life: 1.4, r: 9, explode: sh.R, tex: `fire_${elem}`, trail: 0xff8a2a, spin: 10 });
         return true;
-      case 'fentian': {
-        if (!tg) return false;
-        const cands = this.query(P.x, P.y, 420);
+      case 'fentian':
+        // 在滑鼠位置降下火海
         for (let i = 0; i < n; i++) {
-          const c = cands.length ? pick(cands) : tg;
-          this.areas.push({ kind: 'zone', x: c.x, y: c.y, R: sh.R, life: 3, max: 3, tickT: 0, dmg, elem, color: ELEM_HEX[elem] });
+          const a = i / n * Math.PI * 2, r = n > 1 ? sh.R * 0.9 : 0;
+          this.areas.push({ kind: 'zone', x: pt.x + Math.cos(a) * r, y: pt.y + Math.sin(a) * r, R: sh.R, life: 3, max: 3, tickT: 0, dmg, elem, color: ELEM_HEX[elem] });
         }
         return true;
-      }
-      case 'luoshi': {
-        if (!tg) return false;
-        const cands = this.query(P.x, P.y, 450).sort((a, b) => b.hp - a.hp);
+      case 'luoshi':
+        // 在滑鼠位置砸下巨石
         for (let i = 0; i < n; i++) {
-          const c = cands[i] || tg;
-          const rock = this.add.image(c.x, c.y - 240, 'rock').setDepth(5).setScale(sh.R / 40);
-          this.areas.push({ kind: 'drop', x: c.x, y: c.y, R: sh.R, delay: 0.55, max: 0.55, dmg, elem, color: ELEM_HEX[elem], rock });
+          const a = rand(0, Math.PI * 2), r = i ? sh.R * 1.2 : 0;
+          const x = pt.x + Math.cos(a) * r, y = pt.y + Math.sin(a) * r;
+          const rock = this.add.image(x, y - 240, 'rock').setDepth(5).setScale(sh.R / 40);
+          this.areas.push({ kind: 'drop', x, y, R: sh.R, delay: 0.5, max: 0.5, dmg, elem, color: ELEM_HEX[elem], rock });
         }
         return true;
-      }
       case 'dilie': {
         const R = sh.R;
-        this.areaHit(P.x, P.y, R, e => this.hurt(e, dmg, elem, { kb: 420, kx: P.x, ky: P.y }));
+        this.areaHit(P.x, P.y, R, e => this.hurt(e, dmg, elem, { kb: 420, kx: P.x, ky: P.y, byPlayer: true }));
         for (let i = 0; i < 24; i++) { const ang = i / 24 * Math.PI * 2; this.addPart(P.x + Math.cos(ang) * 20, P.y + Math.sin(ang) * 20, Math.cos(ang) * R * 2.2, Math.sin(ang) * R * 2.2, pick([0x8a6136, 0xc08a4a, 0x5a3d1e]), 3.5, 0.45); }
         this.areas.push({ kind: 'flash', x: P.x, y: P.y, R, life: 0.3, max: 0.3, color: ELEM_HEX[elem] });
         return true;
@@ -1045,12 +1263,13 @@ class Main extends Phaser.Scene {
       } else {
         const targets = this.query(p.x, p.y, p.r);
         if (p.team === 'player' || p.team === 'ally') for (const h of hpbs) if (d2(h.x, h.y, p.x, p.y) < (h.r + p.r) ** 2) targets.push(h);
+        if (p.team === 'player') for (const h of this.pbs) if ((h.state === 'fighting' || h.state === 'feud') && d2(h.x, h.y, p.x, p.y) < (h.r + p.r) ** 2) targets.push(h);
         if (p.team === 'fac') for (const h of this.pbs) if (h.battle === p.fac && h.side !== p.side && d2(h.x, h.y, p.x, p.y) < (h.r + p.r) ** 2) targets.push(h);
         for (const e of targets) {
           if (p.hit.has(e) || e.hp <= 0) continue;
           p.hit.add(e);
           if (p.explode) {
-            this.areaHit(p.x, p.y, p.explode, t => this.hurt(t, p.dmg, p.elem));
+            this.areaHit(p.x, p.y, p.explode, t => this.hurt(t, p.dmg, p.elem, { byPlayer: p.team === 'player' }));
             this.areas.push({ kind: 'flash', x: p.x, y: p.y, R: p.explode, life: 0.25, max: 0.25, color: ELEM_HEX[p.elem] });
             if (--p.pierce < 0) { p.dead = true; break; }
             continue;
@@ -1613,23 +1832,6 @@ class Main extends Phaser.Scene {
     if (P.slowT > 0 && (P.slowT -= dt) <= 0) P.slowF = 1;
     if (P.hurtT > 0) P.sprite.setTint(0xff6060); else P.sprite.clearTint();
 
-    let rate = 0;
-    if (P.meditating) rate += 25 + P.level * 5;
-    if (this.curSect) rate += 15 + P.level * 3;
-    // 宗門自動煉化時，若有可合成的骨皮牙則預留煉器靈石；主動打坐不預留
-    this.craftReserve = this.pendingCraftCost();
-    const usable = P.stones - (P.meditating ? 0 : this.craftReserve);
-    if (rate && usable > 0) {
-      const amt = Math.min(usable, rate * dt);
-      P.stones -= amt; P.exp += amt;
-    }
-    while (P.exp >= this.expNext()) {
-      P.exp -= this.expNext();
-      P.level++;
-      this.pendingChoices++;
-      sfx.levelup();
-      P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.1);
-    }
     // 大境界突破 → 天劫
     if (!this.trib && P.realm < 4 && P.level >= (P.realm + 1) * 10) {
       this.trib = { t: 9, strikeT: 0.5 };
@@ -1720,6 +1922,7 @@ class Main extends Phaser.Scene {
       case 'wash': return `新靈根：${ELEMS.map(e => `<span style="color:${c(e)}">${e}${o.lg[e].toFixed(2)}</span>`).join(' ')}`;
       case 'reforge': return `<span style="color:${c(SKILLS[o.from].elem)}">${SKILLS[o.from].name}</span> → <span style="color:${c(SKILLS[o.to].elem)}">${SKILLS[o.to].name}</span>`;
       case 'keep': return o.label || '維持原狀';
+      case 'replace': return o.label;
       case 'up': {
         const s = this.P.skills.find(k => k.id === o.id);
         return `<span style="color:${c(SKILLS[o.id].elem)}">${SKILLS[o.id].name}</span> Lv${s ? s.lvl : 0}→${Math.min(MAX_SKILL_LVL, (s ? s.lvl : 0) + (o.n || 1))}${o.g && s && o.g > (s.g || 1) ? `・${GRADE_CN[o.g]}品` : ''}`;
@@ -1738,6 +1941,7 @@ class Main extends Phaser.Scene {
       case 'wash': return o.note || '';
       case 'reforge': return `保留 Lv${o.lvl}，品階 ${GRADE_CN[o.g0]}→${GRADE_CN[o.g]}品，${SKILLS[o.to].desc}（耗 ${o.price} 靈石）`;
       case 'keep': return o.desc || '什麼都不做';
+      case 'replace': return `新神通從 Lv1 開始，品階 ${GRADE_CN[o.g]}品`;
       case 'gf': return o.stat === 'lq' ? `${o.elem}靈氣 +${Math.round(this.gfAmt(o) * 100)}%（傷害）` : `${o.elem}靈根 +${this.gfAmt(o).toFixed(2)}（攻速）`;
       case 'attr': return { hp: '肉身上限 +25', shield: '護體上限 +15', speed: '遁速 +7%', S: '神識 +1（時緩、選擇時間、拾取）' }[o.a];
     }
@@ -1748,7 +1952,13 @@ class Main extends Phaser.Scene {
     switch (o.kind) {
       case 'new':
         if (P.skills.find(s => s.id === o.id)) return this.applyOpt({ ...o, kind: 'up', n: 1 });
-        if (P.skills.length >= MAX_SKILLS) return;
+        if (P.skills.length >= MAX_SKILLS) {
+          const keys = ['左鍵', '右鍵', 'Q', 'E'];
+          const opts = P.skills.map((s, i) => ({ kind: 'replace', slot: i, id: o.id, g: o.g || 1, label: `替換 ${keys[i]}：${SKILLS[s.id].name} Lv${s.lvl}` }));
+          opts.push({ kind: 'keep', label: `放棄 ${SKILLS[o.id].name}` });
+          this.time.delayedCall(50, () => this.openEvent(`神通欄位已滿：${SKILLS[o.id].name} 要換掉哪一招？`, opts, opts.length - 1, 15));
+          return;
+        }
         P.skills.push({ id: o.id, lvl: 1, g: o.g || 1, t: 0 });
         break;
       case 'up': {
@@ -1774,6 +1984,10 @@ class Main extends Phaser.Scene {
         return;
       }
       case 'keep': return;
+      case 'replace':
+        P.skills[o.slot] = { id: o.id, lvl: 1, g: o.g, t: 0 };
+        this.hud.toast(`習得：${SKILLS[o.id].name}`);
+        return;
       case 'gf': {
         const amt = this.gfAmt(o);
         if (o.stat === 'lq') P.lq[o.elem] += amt; else P.lg[o.elem] += amt;
@@ -1794,6 +2008,16 @@ class Main extends Phaser.Scene {
   draw() {
     const P = this.P, u = this.under, f = this.fx;
     u.clear(); f.clear();
+    // 篝火範圍與瞄準
+    for (const b of this.bonfires) {
+      if (d2(b.x, b.y, P.x, P.y) > 1400 * 1400) continue;
+      u.fillStyle(b.lit ? 0xff9a3c : 0x888888, b.lit ? 0.1 : 0.05).fillCircle(b.x, b.y, BONFIRE_R);
+    }
+    if (this.aimPt && !SANDBOX) {
+      f.lineStyle(1, 0xffd98a, 0.25).lineBetween(P.x, P.y, this.aimPt.x, this.aimPt.y);
+      f.lineStyle(2, 0xffd98a, 0.7).strokeCircle(this.aimPt.x, this.aimPt.y, 8);
+    }
+    if (P.inv > 0) f.lineStyle(2, 0xffffff, 0.6).strokeCircle(P.x, P.y, 22);
     // 宗門範圍
     for (const s of this.sects) {
       u.fillStyle(ELEM_HEX[s.elem], 0.07).fillCircle(s.x, s.y, SECT_R);
@@ -1835,7 +2059,7 @@ class Main extends Phaser.Scene {
       this.hpBar(f, pb.x, pb.y + 20, 34, pb.hp / pb.maxHp, col);
     }
     for (const e of this.enemies) {
-      if (e.boss || e.charger) this.hpBar(f, e.x, e.y + e.r + 5, e.r * 2, e.hp / e.maxHp, 0xe05555);
+      if ((e.boss || e.elite || e.aggro) && e.hp < e.maxHp) this.hpBar(f, e.x, e.y + e.r + 5, e.r * 2, e.hp / e.maxHp, e.elite || e.boss ? 0xff4040 : 0xe08080);
       if (!e.act) continue;
       if (e.act.kind === 'blink') f.lineStyle(2, ELEM_HEX[e.elem], 0.4 + 0.4 * Math.abs(Math.sin(this.t * 20))).strokeCircle(e.x, e.y, e.r + 8);
       // 衝鋒預警
@@ -1888,7 +2112,7 @@ class Main extends Phaser.Scene {
         px + Math.cos(a - 2.5) * s, py + Math.sin(a - 2.5) * s);
       g.lineStyle(1.5, 0x000000, 0.7).strokeCircle(px - Math.cos(a) * 4, py - Math.sin(a) * 4, big ? 5 : 3);
     };
-    for (const s of this.sects) mark(s.x, s.y, ELEM_HEX[s.elem]);
+    for (const b of this.bonfires) if (!b.lit && d2(b.x, b.y, this.P.x, this.P.y) < 1600 * 1600) mark(b.x, b.y, 0xff9a3c);
     for (const o of this.pois) mark(o.x, o.y, o.color);
     for (const B of this.battles) mark(B.x, B.y, 0xffd98a);
     for (const e of this.enemies) if (e.boss) mark(e.x, e.y, 0xff3030, true);

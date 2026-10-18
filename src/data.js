@@ -35,7 +35,7 @@ export const SKILLS = {
   dilie:    { name: '地裂',     elem: '土', kind: 'aoe',    cd: 2.8, dmg: 16, desc: '身周震波並擊退' },
 };
 export const SKILL_IDS = Object.keys(SKILLS);
-export const MAX_SKILLS = 6;
+export const MAX_SKILLS = 4; // 對應左鍵、右鍵、Q、E
 export const MAX_SKILL_LVL = 8;
 
 // img：assets/img 下的圖片；face：圖片原本朝向（-1 朝左、1 朝右），用來決定是否翻轉

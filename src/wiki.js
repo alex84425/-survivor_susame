@@ -111,13 +111,11 @@ renderSkillList(); renderSkill();
 $('gongfa').innerHTML = `
   <h2>功法</h2>
   <p>功法是被動加成，效果是某一屬性的<b>靈氣</b>（該屬性神通的傷害）或<b>靈根</b>（該屬性神通的攻擊頻率）。
-  只能從<b>宗門藏經閣</b>購買或<b>劫殺</b>敵對修士取得。名稱隨機，例如 ${ELEMS.map(e => ec(e, ['《庚金訣》', '《長春經》', '《玄冰心法》', '《烈陽功》', '《厚土真解》'][ELEMS.indexOf(e)])).join('、')}。</p>
+  來源：<b>第一次點亮篝火</b>（三選一）、<b>清空妖獸巢穴的寶箱</b>、<b>劫殺</b>敵對修士、陣營戰勝方的謝禮。名稱隨機，例如 ${ELEMS.map(e => ec(e, ['《庚金訣》', '《長春經》', '《玄冰心法》', '《烈陽功》', '《厚土真解》'][ELEMS.indexOf(e)])).join('、')}。</p>
   <div class="wrap"><table>
     <tr><th>品階</th>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => `<th>${GRADE_CN[g]}品</th>`).join('')}</tr>
     <tr><td>靈氣功法（傷害）</td>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => `<td>+${Math.round(F.gongfaAmt('lq', g) * 100)}%</td>`).join('')}</tr>
     <tr><td>靈根功法（攻速）</td>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => `<td>+${f2(F.gongfaAmt('lg', g))}</td>`).join('')}</tr>
-    <tr><td>宗門售價（第 0 分）</td>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => `<td>${F.shopPrice('gf', g, 0)}</td>`).join('')}</tr>
-    <tr><td>宗門售價（第 20 分）</td>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => `<td>${F.shopPrice('gf', g, 20)}</td>`).join('')}</tr>
   </table></div>
   <h3>升級三選一的數值（依境界）</h3>
   <div class="wrap"><table>
@@ -126,8 +124,8 @@ $('gongfa').innerHTML = `
     <tr><td>某屬靈氣</td>${REALMS.map((_, i) => `<td>+${Math.round(F.levelAmt('lq', i) * 100)}%</td>`).join('')}</tr>
   </table></div>
   <p class="muted small">升級另有：肉身 +25、護體 +15、遁速 +7%、神識 +1。</p>
-  <h3>商品品階怎麼決定</h3>
-  <p>宗門商品品階 = 主角品階（境界 × 2 + 1，小境界過半再 +1）＋ 宗門每存活 45 秒 +1（最多 +3），上限九品。守住宗門越久，買到的越好。</p>`;
+  <h3>品階怎麼決定</h3>
+  <p>篝火給的品階 = 主角品階（境界 × 2 + 1，小境界過半再 +1）。妖巢寶箱再加上巢穴等級（0～3，離出生點越遠越高），上限九品。</p>`;
 
 // ================= 合成與公式 =================
 const gm3 = [0, 10, 20];
@@ -144,7 +142,7 @@ $('formula').innerHTML = `
 
   <h2>煉器（法寶合成）</h2>
   <code class="formula">妖骨 + 妖皮 + 妖牙（同屬性、同品階）＋ 靈石 → 該屬性法寶（同品階）
-地點：任一宗門範圍內自動合成；每屬性只保留品階最高的一件</code>
+地點：在篝火休息時自動合成；每屬性只保留品階最高的一件</code>
   <ul>
     <li>材料每屬性每部位只保留最高品，較低的自動賣掉（品階 × 5 靈石）。</li>
     <li>已有 N 品某屬法寶時，≤ N 品的該屬材料一律自動賣掉。</li>
@@ -176,14 +174,11 @@ $('formula').innerHTML = `
 提供兩種結果 + 「不洗」，12 秒內決定，逾時視為不洗</code>
   <p class="muted">初始靈根差距刻意縮小（0.8～1.5），洗靈根不會讓人一下子廢掉，而是讓你換主修屬性。</p>
 
-  <h2>宗門神通售價</h2>
-  <div class="wrap"><table><tr><th>品階</th>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => `<th>${GRADE_CN[g]}品</th>`).join('')}</tr>
-    ${gm3.map(m => `<tr><td>第 ${m} 分</td>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => `<td>${F.shopPrice('skill', g, m)}</td>`).join('')}</tr>`).join('')}
-  </table></div>
-  <p class="muted small">已學會的神通再買一次 = 升 1 級，品階取較高者。最多同時 6 門神通。</p>
+  <h2>神通欄位</h2>
+  <p>最多 4 門神通，對應<b>左鍵、右鍵、Q、E</b>，滑鼠瞄準、按住連發。已學會的神通再得到一次 = 升 1 級（品階取較高）。欄位滿時拿到新神通，會讓你選要替換哪一格或放棄。</p>
 
   <h2>修為與境界</h2>
-  <code class="formula">升到下一級所需修為 = 8 + 等級 × 6 + 等級² × 0.5
+  <code class="formula">升到下一級所需靈石 = 8 + 等級 × 6 + 等級² × 0.5（回篝火休息時自動扣靈石升級）
 每 10 級渡天劫突破：肉身、護體 ×1.3；所有神通傷害 +30%（累加）</code>
   <div class="wrap"><table><tr><th>等級</th>${[1, 5, 10, 15, 20, 25, 30, 35, 40].map(l => `<th>${l}</th>`).join('')}</tr>
     <tr><td>升級所需</td>${[1, 5, 10, 15, 20, 25, 30, 35, 40].map(l => `<td>${F.expNext(l)}</td>`).join('')}</tr>
@@ -194,25 +189,25 @@ $('formula').innerHTML = `
 const MOVE_CN = { dash: '衝刺', throw: '投擲', blink: '瞬移狐火', web: '蛛網定身', pool: '毒池', slam: '震地', sting: '麻痺毒針' };
 const SHOT_CN = { venom: '毒液', orb: '妖彈', spread: '三連毒液' };
 const beastCard = (k, T) => {
-  const hp = m => (T.boss ? F.bossHp(T.hp, m) : F.enemyHp(T.hp, m));
+  const hp = m => (T.boss ? F.bossHp(T.hp, m) : F.enemyHp(T.hp, m) * 2.2);
   const moves = T.boss ? (T.final ? ['衝鋒', '彈幕', '召喚', '震地', '毒池', '蛛網'] : ['衝鋒', '三波彈幕', '召喚', '震地紅圈', '半血狂暴']) : (T.moves || []).map(m => MOVE_CN[m]);
   if (T.ranged) moves.unshift('遠程' + SHOT_CN[T.shot]);
   return `<div class="beast">
     <img src="assets/img/px_${T.img}.png" onerror="this.src='assets/img/${T.img}.png'" alt="${T.name}">
     <h3>${T.name}</h3>
-    <div class="small muted">速度 ${T.speed}・碰撞 ${T.dmg}・靈石 ${T.stone * 3}</div>
+    <div class="small muted">速度 ${T.speed}・攻擊 ${T.dmg}・靈石 ${T.stone * 3}</div>
     ${moves.map(m => `<span class="tag">${m}</span>`).join('')}
     <table><tr><th>分鐘</th><th>0</th><th>10</th><th>20</th><th>30</th></tr>
       <tr><td>血量</td>${[0, 10, 20, 30].map(m => `<td>${f0(hp(m))}</td>`).join('')}</tr>
-      <tr><td>碰撞傷害</td>${[0, 10, 20, 30].map(m => `<td>${f0(F.enemyDmg(T.dmg, m))}</td>`).join('')}</tr>
+      <tr><td>爪擊傷害</td>${[0, 10, 20, 30].map(m => `<td>${f0(F.enemyDmg(T.dmg, m) * 2)}</td>`).join('')}</tr>
     </table></div>`;
 };
 const normal = Object.entries(ENEMY_TYPES).filter(([k, T]) => !T.boss && k !== 'dummy');
 const bosses = Object.entries(ENEMY_TYPES).filter(([, T]) => T.boss);
 $('beasts').innerHTML = `
-  <h2>妖獸</h2><p class="muted">出手前都有預警：紅色長條是衝刺路線，紅圈是落點，綠圈是毒池。遠程妖獸同時數量有上限。</p>
+  <h2>妖獸</h2><p class="muted">妖獸住在巢穴裡，靠近才會被驚動，同巢的會一起上。同時最多 3 隻進攻，其他在外圍繞圈等待。所有攻擊都有預警：紅圈是爪擊或落點、紅色長條是衝刺、綠圈是毒池，用空白鍵閃避（短暫無敵）。巢穴等級 0～3，血量每級 +35%，等級 1 以上有精英（血量 ×4）。下表為一般巢穴等級 0 的數值（黑夜君臨模式另 ×2.2）。</p>
   <div class="beasts">${normal.map(([k, T]) => beastCard(k, T)).join('')}</div>
-  <h2>妖王</h2><p class="muted">每夜 4.5 分鐘遊蕩妖王（可能拖入異空間）、8.5 分鐘夜之妖王；第三夜 7 分鐘妖皇降臨。妖王血量不吃平方成長以外的倍率。</p>
+  <h2>妖王</h2><p class="muted">每夜 4.5 分鐘遊蕩妖王（可能拖入異空間）、8.5 分鐘夜之妖王；第三夜 7 分鐘妖皇降臨。</p>
   <div class="beasts">${bosses.map(([k, T]) => beastCard(k, T)).join('')}</div>`;
 
 // ================= 數值平衡 =================
@@ -228,8 +223,8 @@ function buildDps(gm) {
 }
 
 const SERIES = [
-  { name: '小鬼', color: 'var(--s1)', hp: m => F.enemyHp(ENEMY_TYPES.imp.hp, m) },
-  { name: '妖熊', color: 'var(--s2)', hp: m => F.enemyHp(ENEMY_TYPES.bear.hp, m) },
+  { name: '小鬼', color: 'var(--s1)', hp: m => F.enemyHp(ENEMY_TYPES.imp.hp, m) * 2.2 },
+  { name: '妖熊', color: 'var(--s2)', hp: m => F.enemyHp(ENEMY_TYPES.bear.hp, m) * 2.2 },
   { name: '妖王', color: 'var(--s3)', hp: m => F.bossHp(900, m) },
 ];
 
@@ -274,7 +269,7 @@ function drawBalance() {
       ${SERIES.map((s, i) => `<tr><td>${s.name}血量</td>${[0, 5, 10, 15, 20, 25, 30].map(m => `<td>${f0(s.hp(m))}</td>`).join('')}</tr><tr><td>${s.name}擊殺秒數</td>${[0, 5, 10, 15, 20, 25, 30].map(m => `<td>${f1(data[i][m])}</td>`).join('')}</tr>`).join('')}
       <tr><td>妖皇血量（27 分）</td><td colspan="7">${f0(F.bossHp(ENEMY_TYPES.emperor.hp, 27))}，此配置約 ${f0(F.bossHp(ENEMY_TYPES.emperor.hp, 27) / buildDps(27))} 秒</td></tr>
     </table></div>
-    <p class="muted small">參考：自動模擬（tools/sim.js）中，第三夜機器人約有 6 門神通、平均 Lv3、四到七品。</p>`;
+    <p class="muted small">最多 4 門神通。妖獸血量為巢穴等級 0；高等級巢穴與精英更硬。</p>`;
   // 互動
   el.querySelectorAll('#bskills select, #bskills input').forEach(inp => inp.onchange = () => {
     const s = B.skills[+inp.dataset.i];
@@ -282,7 +277,7 @@ function drawBalance() {
     drawBalance();
   });
   el.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { B.skills.splice(+b.dataset.del, 1); drawBalance(); });
-  $('badd').onclick = () => { if (B.skills.length < 6) B.skills.push({ id: 'hanchao', L: 1, g: 1 }); drawBalance(); };
+  $('badd').onclick = () => { if (B.skills.length < 4) B.skills.push({ id: 'hanchao', L: 1, g: 1 }); drawBalance(); };
   $('blg').onchange = e => { B.lg = +e.target.value; drawBalance(); };
   $('blq').onchange = e => { B.lq = +e.target.value; drawBalance(); };
   $('bw').onchange = e => { B.w = +e.target.value; drawBalance(); };

@@ -1,4 +1,5 @@
-// DOM 介面：狀態面板、升級選擇、宗門商店、訊息
+// DOM 介面：狀態面板、抉擇、技能列、小地圖、訊息
+import * as F from './formula.js';
 import { ELEMS, ELEM_CSS, REALMS, GRADE_CN, SKILLS, PARTS, COUNTERED_BY } from './data.js';
 
 const $ = id => document.getElementById(id);
@@ -40,9 +41,11 @@ export class Hud {
     const P = g.P;
     $('h-life').textContent = `壽元 ${fmtTime(g.duration - g.t)}`;
     $('h-realm').innerHTML = `${REALMS[P.realm]} ${GRADE_CN[((P.level - 1) % 10) + 1] || '十'}層　Lv${P.level}`;
-    $('h-exp').style.width = `${P.exp / g.expNext() * 100}%`;
-    $('h-exptxt').textContent = `修為 ${Math.floor(P.exp)} / ${g.expNext()}`;
-    $('h-stones').textContent = `靈石 ${Math.floor(P.stones)}` + (g.craftReserve ? `（預留煉器 ${g.craftReserve}）` : '');
+    $('h-exp').style.width = `${Math.min(1, P.stones / g.expNext()) * 100}%`;
+    $('h-exptxt').textContent = `靈石 ${Math.floor(P.stones)} / 升級需 ${g.expNext()}`;
+    let can = 0, left = P.stones, lv = P.level;
+    while (left >= F.expNext(lv) && can < 20) { left -= F.expNext(lv); lv++; can++; }
+    $('h-stones').innerHTML = can ? `<b style="color:#ffd98a">可升 ${can} 級・回篝火</b>` : '回篝火升級';
     $('h-phase').innerHTML = `${g.nightInfo}　妖潮 ${ec(g.phaseElem)} 宜用 ${ec(COUNTERED_BY[g.phaseElem])}`;
     $('h-kills').textContent = `斬妖 ${P.kills}`;
     $('slowfx').classList.toggle('on', P.slowActive);
@@ -66,7 +69,7 @@ export class Hud {
     L += ws.length ? ws.map(e => {
       const b = g.wb(e);
       return `<div>${ec(e, `${GRADE_CN[P.weapons[e]]}品${e}寶`)} <span class="small">數量+${b.n} 穿透+${b.pierce} 範圍+${Math.round((b.area - 1) * 100)}%</span></div>`;
-    }).join('') : `<span class="small">無（在宗門以骨皮牙同階合成）</span>`;
+    }).join('') : `<span class="small">無（骨皮牙同階，在篝火合成）</span>`;
     L += `<h4>煉器材料</h4>`;
     const mats = ELEMS.map(e => {
       const parts = PARTS.map(p => P.mats[`${e}-${p}`] ? `${p}${P.mats[`${e}-${p}`]}` : `<span class="small">${p}-</span>`).join(' ');
@@ -75,7 +78,7 @@ export class Hud {
     L += mats;
     $('left').innerHTML = L;
 
-    let R = `<h4>神通 (${P.skills.length}/6)</h4>`;
+    let R = `<h4>神通 (${P.skills.length}/4)</h4>`;
     R += P.skills.map(s => {
       const d = SKILLS[s.id];
       return `<div class="row"><span>${ec(d.elem, d.name)} <span class="small">${GRADE_CN[s.g || 1]}品</span></span><span>Lv${s.lvl}　${g.skillCd(s).toFixed(2)}s</span></div>`;
@@ -84,21 +87,24 @@ export class Hud {
     R += P.gongfa.slice(-8).map(f => `<div class="row"><span>${ec(f.elem, f.name)}</span><span class="small">${f.stat === 'lq' ? '靈氣' : '靈根'}+${f.stat === 'lq' ? Math.round(f.amt * 100) + '%' : f.amt.toFixed(2)}</span></div>`).join('') || '<span class="small">無</span>';
     const allies = g.pbs.filter(p => p.state === 'ally' || p.state === 'friend');
     R += `<h4>隊友</h4>`;
-    R += allies.map(a => `<div class="row"><span>${ec(a.elem, a.name)}</span><span>${Math.ceil(a.hp)}/${Math.ceil(a.maxHp)}</span></div>`).join('') || '<span class="small">無（E 與路人結伴）</span>';
+    R += allies.map(a => `<div class="row"><span>${ec(a.elem, a.name)}</span><span>${Math.ceil(a.hp)}/${Math.ceil(a.maxHp)}</span></div>`).join('') || '<span class="small">無（F 與路人結伴）</span>';
     if (g.nemesis.length) R += `<h4>宿敵</h4>` + g.nemesis.map(n => `<div>${ec(n.elem, n.name)} <span class="small">★${n.power}</span></div>`).join('');
     $('right').innerHTML = R;
+    this.drawSkillbar(g);
+    this.drawMinimap(g);
 
     // 互動提示
     const near = g.nearPasserby;
     let pr = '';
-    if (g.nearPoi) {
-      pr = `<b style="color:#${g.nearPoi.color.toString(16)}">${g.nearPoi.name}</b>　[E] ${g.nearPoi.kind === 'wash' ? '洗亂靈根' : '重練神通'}`;
+    if (g.nearBonfire) {
+      pr = `<b style="color:#ff9a3c">篝火</b>　[F] ${g.nearBonfire.lit ? '休息・回復・升級' : '點亮篝火（獲得機緣）'}`;
+    } else if (g.nearPoi) {
+      pr = `<b style="color:#${g.nearPoi.color.toString(16)}">${g.nearPoi.name}</b>　[F] ${g.nearPoi.kind === 'wash' ? '洗亂靈根' : '重練神通'}`;
     } else if (near) {
       const tag = { fighting: '與妖獸纏鬥中', hostile: '敵意', ally: '隊友', fleeing: '逃跑中', feud: '火拼中', friend: '友軍' }[near.state];
       pr = `${ec(near.elem, near.name)}（${near.elem}・${tag}）`;
-      if (near.state === 'fighting') pr += '　[E] 結伴　[F] 攻擊';
-      else if (near.state === 'ally') pr += '　[F] 背叛攻擊';
-      else if (near.state === 'feud') pr += `　[E] 助陣 ${near.battle.names[near.side]}　[F] 助陣 ${near.battle.names[1 - near.side]}`;
+      if (near.state === 'fighting') pr += '　[F] 結伴　（用神通打他＝出手）';
+      else if (near.state === 'feud') pr += `　[F] 助陣 ${near.battle.names[near.side]}　（打他＝助陣 ${near.battle.names[1 - near.side]}）`;
     }
     $('prompt').innerHTML = pr;
 
@@ -106,7 +112,6 @@ export class Hud {
     if (g.duel) st = `⚔ 異空間單挑 ${g.duel.name}　${Math.ceil(g.duel.boss.hp / g.duel.boss.maxHp * 100)}%　剩 ${Math.ceil(g.duel.t)} 秒`;
     else if (g.outside) st = '⚡ 你在天雷結界外！快回到結界內 ⚡';
     else if (g.trib) st = `⚡ 天劫降臨！撐過 ${g.trib.t.toFixed(1)} 秒 ⚡`;
-    else if (P.meditating) st = P.stones > 0 ? '打坐煉化靈石中…' : '打坐中（沒有靈石）';
     $('state').textContent = st;
 
     this.updateChoice(g);
@@ -146,6 +151,41 @@ export class Hud {
       }).join('')}
       <div class="small">範圍內自動煉化靈石、自動煉器</div>`;
     box.querySelectorAll('.shopitem[data-i]').forEach(el => el.onclick = () => g.buyShop(+el.dataset.i));
+  }
+
+  drawSkillbar(g) {
+    const keys = ['左鍵', '右鍵', 'Q', 'E'];
+    $('skillbar').innerHTML = keys.map((k, i) => {
+      const s = g.P.skills[i];
+      if (!s) return `<div class="slot empty"><div class="key">${k}</div><div class="lv">空</div></div>`;
+      const d = SKILLS[s.id], cd = g.skillCd(s), frac = Math.max(0, Math.min(1, s.t / cd));
+      return `<div class="slot"><div class="key">${k}</div><div class="nm">${ec(d.elem, d.name)}</div><div class="lv">Lv${s.lvl}・${GRADE_CN[s.g || 1]}品・${cd.toFixed(1)}s</div><div class="cd" style="width:${frac * 100}%"></div></div>`;
+    }).join('');
+  }
+
+  drawMinimap(g) {
+    const cv = $('minimap'), c = cv.getContext('2d'), W = cv.width, H = cv.height, S = W / g.world;
+    c.clearRect(0, 0, W, H);
+    c.fillStyle = '#0e1118'; c.fillRect(0, 0, W, H);
+    const Z = g.zone;
+    if (Z) {
+      c.fillStyle = 'rgba(20,6,42,.65)'; c.fillRect(0, 0, W, H);
+      c.save(); c.beginPath(); c.arc(Z.cx * S, Z.cy * S, Z.R * S, 0, Math.PI * 2); c.clip(); c.fillStyle = '#121620'; c.fillRect(0, 0, W, H); c.restore();
+      c.strokeStyle = '#9a6bff'; c.lineWidth = 1.5; c.beginPath(); c.arc(Z.cx * S, Z.cy * S, Z.R * S, 0, Math.PI * 2); c.stroke();
+    }
+    for (const cp of g.camps) {
+      if (cp.cleared) continue;
+      c.fillStyle = ['#a05050', '#c05050', '#e04848', '#ff3030'][cp.tier];
+      c.fillRect(cp.x * S - 2, cp.y * S - 2, 4 + cp.tier, 4 + cp.tier);
+    }
+    for (const b of g.bonfires) { c.fillStyle = b.lit ? '#ffb030' : '#6a5a4a'; c.beginPath(); c.arc(b.x * S, b.y * S, 2.6, 0, Math.PI * 2); c.fill(); }
+    for (const o of g.pois) { c.fillStyle = '#' + o.color.toString(16); c.fillRect(o.x * S - 2.5, o.y * S - 2.5, 5, 5); }
+    for (const B of g.battles) { c.fillStyle = '#ffd98a'; c.font = '10px sans-serif'; c.fillText('⚔', B.x * S - 4, B.y * S + 4); }
+    for (const e of g.enemies) if (e.boss) { c.fillStyle = '#ff2020'; c.beginPath(); c.arc(e.x * S, e.y * S, 4, 0, Math.PI * 2); c.fill(); }
+    const P = g.P;
+    c.fillStyle = '#ffffff'; c.beginPath(); c.arc(P.x * S, P.y * S, 3.2, 0, Math.PI * 2); c.fill();
+    const v = g.cameras.main.worldView;
+    c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1; c.strokeRect(v.x * S, v.y * S, v.width * S, v.height * S);
   }
 
   gameOver(win, g) {
