@@ -59,6 +59,8 @@ export const ENEMY_TYPES = {
   boss_lion:    { ...BOSS, name: '獅王',   ch: '獅', img: 'lion' },
   boss_trex:    { ...BOSS, name: '暴龍王', ch: '暴', img: 'trex', face: 1 },
   boss_gorilla: { ...BOSS, name: '猿王',   ch: '猿', img: 'gorilla', face: -1 },
+  // 百科沙盒用的木樁
+  dummy:        { name: '木樁', ch: '樁', r: 18, hp: 1e9, speed: 0, dmg: 0, stone: 0 },
   // 第三夜的最終妖皇
   emperor:      { ...BOSS, name: '妖皇・燭龍', ch: '皇', img: 'dragon', face: 1, r: 50, hp: 10000, dmg: 32, stone: 300, final: true },
 };

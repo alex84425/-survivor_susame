@@ -63,3 +63,6 @@ html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden;
 
 #over { position: absolute; inset: 0; background: rgba(0,0,0,.75); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-size: 16px; pointer-events: auto; }
 #over h1 { font-size: 42px; margin: 0; color: #ffd98a; letter-spacing: 6px; }
+
+/* 百科沙盒：隱藏所有介面 */
+body.sandbox #hud { display: none; }

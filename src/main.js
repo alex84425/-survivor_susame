@@ -4,6 +4,7 @@ import {
   SKILLS, SKILL_IDS, MAX_SKILLS, MAX_SKILL_LVL, ENEMY_TYPES, BOSS_TYPES, spawnTable, IMAGES, PX_FACE, randName, randSectName, randGongfaName, randEvilSect,
 } from './data.js';
 import { Hud } from './ui.js';
+import * as F from './formula.js';
 import { sfx, initAudio, toggleMute, toggleBgm, setIntensity } from './sfx.js';
 
 const WORLD = 4000;
@@ -12,6 +13,8 @@ const SECT_R = 140;
 const MAX_ENEMIES = 120;
 const params = new URLSearchParams(location.search);
 const DURATION = (parseFloat(params.get('min')) || 30) * 60;
+// 百科用的沙盒：只有玩家和木樁，用來預覽神通與量測 DPS
+const SANDBOX = params.get('sandbox') === '1';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const randi = (a, b) => Math.floor(rand(a, b + 1));
@@ -218,6 +221,7 @@ class Main extends Phaser.Scene {
 
     this.initPlayer();
     this.cameras.main.startFollow(this.P.sprite, true, 0.15, 0.15);
+    if (SANDBOX) return this.initSandbox();
     this.spawnSect(300, 500);
     this.updatePhase();
     this.hud.toast(`你是${this.P.lgType}修士。三夜之內湊齊神通，斬殺第三夜的妖皇才能飛昇！`);
@@ -254,20 +258,16 @@ class Main extends Phaser.Scene {
   ssMax() { return 40 + this.P.S * 12; }
   pickupR() { return 50 + this.P.S * 8; }
   choiceTime() { return 4 + this.P.S * 0.6; }
-  expNext() { const l = this.P.level; return Math.floor(8 + l * 6 + l * l * 0.5); }
+  expNext() { return F.expNext(this.P.level); }
   // 法寶：強化同屬性神通（投射物數量、穿透、範圍）
-  wb(elem) {
-    const g = this.P.weapons[elem] || 0;
-    return { n: Math.floor(g / 3), pierce: Math.floor(g / 2), area: 1 + g * 0.06 };
-  }
+  wb(elem) { return F.weapon(this.P.weapons[elem] || 0); }
   skillCd(s) {
     const d = SKILLS[s.id];
-    return d.cd * (1 - 0.05 * (s.lvl - 1)) / Math.max(0.3, this.P.lg[d.elem]);
+    return F.skillCd(d.cd, s.lvl, this.P.lg[d.elem]);
   }
   skillDmg(s) {
     const d = SKILLS[s.id];
-    // 升級不再給神通，所以基礎傷害 ×1.6 補回來
-    return 1.6 * d.dmg * (1 + 0.3 * (s.lvl - 1)) * (1 + 0.12 * ((s.g || 1) - 1)) * (1 + this.P.lq[d.elem]) * (1 + this.P.realm * 0.3);
+    return F.skillDmg(d.dmg, s.lvl, s.g || 1, this.P.lq[d.elem], this.P.realm);
   }
   // 神識時緩：依境界差決定敵方時間倍率
   realmSlow(realm) { return clamp(0.5 - 0.15 * (this.P.realm - realm), 0.03, 0.85); }
@@ -275,6 +275,7 @@ class Main extends Phaser.Scene {
 
   // ---------- 主迴圈 ----------
   update(_, deltaMs) {
+    if (SANDBOX) return this.updateSandbox(Math.min(deltaMs / 1000, 0.05));
     if (this.over) {
       if (Phaser.Input.Keyboard.JustDown(this.keys.ENTER)) this.scene.restart();
       return;
@@ -481,10 +482,10 @@ class Main extends Phaser.Scene {
     const a = rand(0, Math.PI * 2), R = rand(650, 820);
     const x = clamp(at ? at.x : P.x + Math.cos(a) * R, 20, WORLD - 20), y = clamp(at ? at.y : P.y + Math.sin(a) * R, 20, WORLD - 20);
     // 妖獸少而精：一般妖獸血量 ×1.4（開局）～×2.6（第三夜）；妖王不吃平方成長，避免後期打不動
-    const hp = T.boss ? T.hp * (1 + gm * 0.3 + gm * gm * 0.025) : T.hp * (1.4 + gm * 0.04) * (1 + gm * 0.25 + gm * gm * 0.02);
+    const hp = T.boss ? F.bossHp(T.hp, gm) : F.enemyHp(T.hp, gm);
     const e = {
       type, elem, x, y, r: T.r, hp, maxHp: hp, boss: !!T.boss, final: !!T.final, charger: !!T.charger, moves: T.moves || null, wind: T.wind || 0.7, face: this.textures.exists('img_px_' + T.img) ? PX_FACE[T.img] || 0 : T.face || 0,
-      speed: T.speed * rand(0.9, 1.1) * (1 + gm * 0.01), dmg: T.dmg * (1 + gm * 0.08),
+      speed: T.speed * rand(0.9, 1.1) * (1 + gm * 0.01), dmg: F.enemyDmg(T.dmg, gm),
       realm: Math.min(4, Math.floor(gm / 6)) + (T.boss ? 1 : 0),
       touchCd: 0, slowT: 0, slowF: 1, kx: 0, ky: 0, flash: 0, target: null, retarget: rand(0, 0.5), shootT: rand(1, 3),
       sprite: this.add.image(x, y, `e_${type}_${elem}`).setDepth(T.boss ? 3 : 2),
@@ -492,6 +493,73 @@ class Main extends Phaser.Scene {
     };
     this.enemies.push(e);
     return e;
+  }
+
+  // ---------- 沙盒（百科預覽） ----------
+  initSandbox() {
+    const P = this.P;
+    document.body.classList.add('sandbox');
+    P.skills = []; P.gongfa = [];
+    this.zone = null; this.sbLog = []; this.phaseElem = '金';
+    // 預覽框可能很窄，縮放到能看見玩家和木樁
+    const fit = () => { const cam = this.cameras.main; cam.setZoom(Math.min(1, this.scale.width / 600)); cam.centerOn(P.x + 140, P.y); };
+    this.cameras.main.stopFollow();
+    fit();
+    this.scale.on('resize', fit);
+    window.sandbox = {
+      // skills: [{ id, lvl, g }]；lg / lq：五行靈根與靈氣；weapons：{ 金: 品階 }
+      setLoadout: o => {
+        P.skills = (o.skills || []).map(k => ({ id: k.id, lvl: k.lvl || 1, g: k.g || 1, t: 0.2 }));
+        for (const e of ELEMS) { P.lg[e] = (o.lg && o.lg[e]) ?? 1; P.lq[e] = (o.lq && o.lq[e]) ?? 0; }
+        P.weapons = { ...(o.weapons || {}) };
+        P.realm = o.realm || 0;
+        this.sbLog = [];
+      },
+      // 木樁：count 支、屬性 elem、散佈半徑 spread
+      setDummies: ({ count = 1, elem = '金', spread = 0 } = {}) => {
+        for (const e of this.enemies) e.sprite.destroy();
+        this.enemies = [];
+        for (const p of this.projs) p.sprite.destroy();
+        this.projs = []; this.areas = [];
+        for (let i = 0; i < count; i++) {
+          const a = i / count * Math.PI * 2, r = count > 1 ? spread * (0.5 + 0.5 * (i % 2)) : 0;
+          const e = this.spawnEnemy('dummy', { x: P.x + 240 + Math.cos(a) * r, y: P.y + Math.sin(a) * r, elem });
+          e.dummy = true;
+        }
+        this.sbLog = [];
+      },
+      // 最近 sec 秒的每秒傷害
+      dps: (sec = 5) => {
+        const from = this.t - sec;
+        const sum = this.sbLog.filter(x => x[0] >= from).reduce((a, x) => a + x[1], 0);
+        return sum / Math.min(sec, Math.max(0.5, this.t - (this.sbLog[0] ? this.sbLog[0][0] : this.t)));
+      },
+      reset: () => { this.sbLog = []; },
+      scene: this,
+    };
+    window.sandbox.setDummies({ count: 1 });
+    if (window.parent !== window) window.parent.postMessage('sandbox-ready', '*');
+  }
+
+  updateSandbox(dt) {
+    this.t += dt;
+    const P = this.P;
+    P.sprite.setPosition(P.x, P.y);
+    this.buildGrid();
+    for (const e of this.enemies) {
+      e.sprite.setPosition(e.x, e.y);
+      if (e.slowT > 0) e.slowT -= dt;
+      if (e.flash > 0) { e.flash -= dt; if (e.flash <= 0) e.sprite.clearTint(); }
+      // 擊退後慢慢回到原位
+      e.x += e.kx * dt; e.y += e.ky * dt; e.kx *= 0.85; e.ky *= 0.85;
+    }
+    this.updateSkills(dt);
+    this.updateProjectiles(dt);
+    this.updateAreas(dt);
+    this.draw();
+    this.updateParts(dt);
+    this.updateDmgTexts(dt);
+    if (this.sbLog.length > 4000) this.sbLog.splice(0, 2000);
   }
 
   // ---------- 異空間單挑 ----------
@@ -806,7 +874,7 @@ class Main extends Phaser.Scene {
 
   damagePlayer(dmg) {
     const P = this.P;
-    if (this.over) return;
+    if (this.over || SANDBOX) return;
     P.shieldDelay = 3;
     P.hurtT = 0.12;
     sfx.hurt();
@@ -821,6 +889,7 @@ class Main extends Phaser.Scene {
     const m = elemMult(elem, e.elem);
     const dmg = base * m * rand(0.9, 1.1);
     e.hp -= dmg;
+    if (e.dummy) { this.sbLog.push([this.t, dmg]); e.hp = e.maxHp; }
     if (e.sprite && !e.isPb) { e.flash = 0.06; e.sprite.setTintFill(0xffffff); }
     this.dmgText(e.x, e.y - e.r, dmg, m);
     sfx.hit();
@@ -870,73 +939,60 @@ class Main extends Phaser.Scene {
   }
 
   castSkill(s) {
-    const P = this.P, d = SKILLS[s.id], elem = d.elem, dmg = this.skillDmg(s), L = s.lvl, W = this.wb(elem);
+    const P = this.P, d = SKILLS[s.id], elem = d.elem, dmg = this.skillDmg(s), L = s.lvl;
+    const sh = F.shape(s.id, L, this.wb(elem)), n = sh.n;
     const tg = this.nearestTarget(P.x, P.y, 520);
     const aim = tg ? Math.atan2(tg.y - P.y, tg.x - P.x) : 0;
     switch (s.id) {
-      case 'gengjin': {
+      case 'gengjin':
         if (!tg) return false;
-        const n = 1 + Math.floor(L / 3) + W.n;
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.12, speed: 620, dmg, elem, pierce: 2 + Math.floor(L / 2) + W.pierce, life: 1.1, r: 7, tex: `sw_${elem}`, trail: ELEM_HEX[elem] });
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.12, speed: 620, dmg, elem, pierce: sh.pierce, life: 1.1, r: 7, tex: `sw_${elem}`, trail: ELEM_HEX[elem] });
         return true;
-      }
-      case 'wanjian': {
-        const n = 8 + L * 2 + W.n * 3;
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: i / n * Math.PI * 2, speed: 430, dmg, elem, pierce: 3 + W.pierce, life: 0.9 * W.area, r: 7, tex: `sw_${elem}` });
+      case 'wanjian':
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: i / n * Math.PI * 2, speed: 430, dmg, elem, pierce: sh.pierce, life: sh.life, r: 7, tex: `sw_${elem}` });
         return true;
-      }
-      case 'qingteng': {
+      case 'qingteng':
         if (!tg) return false;
-        const n = 1 + Math.floor(L / 4) + W.n;
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + rand(-0.5, 0.5), speed: 340, dmg, elem, pierce: 1 + Math.floor(L / 3) + W.pierce, life: 2.2, r: 8, homing: true, slow: 1.5, slowF: 0.45, tex: `leaf_${elem}`, trail: 0x5cc96b });
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + rand(-0.5, 0.5), speed: 340, dmg, elem, pierce: sh.pierce, life: 2.2, r: 8, homing: true, slow: 1.5, slowF: 0.45, tex: `leaf_${elem}`, trail: 0x5cc96b });
         return true;
-      }
       case 'wanmu': {
-        const R = (85 + L * 10) * W.area;
         let hit = 0;
-        this.areaHit(P.x, P.y, R, e => { this.hurt(e, dmg, elem); hit++; });
+        this.areaHit(P.x, P.y, sh.R, e => { this.hurt(e, dmg, elem); hit++; });
         if (hit) P.hp = Math.min(P.maxHp, P.hp + 0.6 + L * 0.25);
         return true;
       }
-      case 'xuanbing': {
+      case 'xuanbing':
         if (!tg) return false;
-        const n = 2 + Math.floor(L / 3) + W.n;
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.18, speed: 480, dmg, elem, pierce: 1 + W.pierce, life: 1.1, r: 7, slow: 1.5, slowF: 0.5, tex: `ice_${elem}`, trail: 0xbfe8ff });
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + (i - (n - 1) / 2) * 0.18, speed: 480, dmg, elem, pierce: sh.pierce, life: 1.1, r: 7, slow: 1.5, slowF: 0.5, tex: `ice_${elem}`, trail: 0xbfe8ff });
         return true;
-      }
       case 'hanchao':
-        this.areas.push({ kind: 'ring', x: P.x, y: P.y, r: 10, maxR: (190 + L * 22) * W.area, spd: 380, dmg, elem, hit: new Set(), slow: 2, color: ELEM_HEX[elem] });
+        this.areas.push({ kind: 'ring', x: P.x, y: P.y, r: 10, maxR: sh.R, spd: 380, dmg, elem, hit: new Set(), slow: 2, color: ELEM_HEX[elem] });
         return true;
-      case 'huoqiu': {
+      case 'huoqiu':
         if (!tg) return false;
-        const n = 1 + Math.floor(L / 4) + W.n;
-        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + i * 0.25, speed: 420, dmg, elem, pierce: W.pierce, life: 1.4, r: 9, explode: (48 + L * 6) * W.area, tex: `fire_${elem}`, trail: 0xff8a2a, spin: 10 });
+        for (let i = 0; i < n; i++) this.shoot({ team: 'player', x: P.x, y: P.y, ang: aim + i * 0.25, speed: 420, dmg, elem, pierce: sh.pierce, life: 1.4, r: 9, explode: sh.R, tex: `fire_${elem}`, trail: 0xff8a2a, spin: 10 });
         return true;
-      }
       case 'fentian': {
         if (!tg) return false;
-        const n = 1 + Math.floor(L / 3) + W.n;
         const cands = this.query(P.x, P.y, 420);
         for (let i = 0; i < n; i++) {
           const c = cands.length ? pick(cands) : tg;
-          this.areas.push({ kind: 'zone', x: c.x, y: c.y, R: (55 + L * 6) * W.area, life: 3, max: 3, tickT: 0, dmg, elem, color: ELEM_HEX[elem] });
+          this.areas.push({ kind: 'zone', x: c.x, y: c.y, R: sh.R, life: 3, max: 3, tickT: 0, dmg, elem, color: ELEM_HEX[elem] });
         }
         return true;
       }
       case 'luoshi': {
         if (!tg) return false;
-        const n = 1 + Math.floor(L / 4) + W.n;
-        let cands = this.query(P.x, P.y, 450).sort((a, b) => b.hp - a.hp);
+        const cands = this.query(P.x, P.y, 450).sort((a, b) => b.hp - a.hp);
         for (let i = 0; i < n; i++) {
           const c = cands[i] || tg;
-          const R = (45 + L * 4) * W.area;
-          const rock = this.add.image(c.x, c.y - 240, 'rock').setDepth(5).setScale(R / 40);
-          this.areas.push({ kind: 'drop', x: c.x, y: c.y, R, delay: 0.55, max: 0.55, dmg, elem, color: ELEM_HEX[elem], rock });
+          const rock = this.add.image(c.x, c.y - 240, 'rock').setDepth(5).setScale(sh.R / 40);
+          this.areas.push({ kind: 'drop', x: c.x, y: c.y, R: sh.R, delay: 0.55, max: 0.55, dmg, elem, color: ELEM_HEX[elem], rock });
         }
         return true;
       }
       case 'dilie': {
-        const R = (110 + L * 12) * W.area;
+        const R = sh.R;
         this.areaHit(P.x, P.y, R, e => this.hurt(e, dmg, elem, { kb: 420, kx: P.x, ky: P.y }));
         for (let i = 0; i < 24; i++) { const ang = i / 24 * Math.PI * 2; this.addPart(P.x + Math.cos(ang) * 20, P.y + Math.sin(ang) * 20, Math.cos(ang) * R * 2.2, Math.sin(ang) * R * 2.2, pick([0x8a6136, 0xc08a4a, 0x5a3d1e]), 3.5, 0.45); }
         this.areas.push({ kind: 'flash', x: P.x, y: P.y, R, life: 0.3, max: 0.3, color: ELEM_HEX[elem] });
@@ -1298,7 +1354,7 @@ class Main extends Phaser.Scene {
       const targets = SKILL_IDS.filter(id => SKILLS[id].kind === kind && SKILLS[id].elem !== SKILLS[s.id].elem && !P.skills.some(k => k.id === id));
       if (!targets.length) continue;
       const g0 = s.g || 1, g = Math.min(9, g0 + 2);
-      offers.push({ kind: 'reforge', from: s.id, to: pick(targets), lvl: s.lvl, g0, g, price: Math.round(40 * g * (1 + this.gm * 0.15)) });
+      offers.push({ kind: 'reforge', from: s.id, to: pick(targets), lvl: s.lvl, g0, g, price: F.reforgePrice(g, this.gm) });
     }
     if (!offers.length) { this.hud.toast('煉神爐：沒有可以重練的神通', '#999'); return; }
     offers.push({ kind: 'keep', label: '不重練' });
@@ -1392,7 +1448,7 @@ class Main extends Phaser.Scene {
 
   refreshShop(s) {
     const P = this.P;
-    const grade = clamp(this.curGrade() + Math.min(3, Math.floor(s.age / 45)), 1, 9);
+    const grade = F.shopGrade(this.curGrade(), s.age);
     const items = [];
     for (const id of SKILL_IDS.filter(i => SKILLS[i].elem === s.elem)) {
       const owned = P.skills.find(k => k.id === id);
@@ -1403,7 +1459,7 @@ class Main extends Phaser.Scene {
     shuffle(items);
     const out = items.slice(0, 2);
     while (out.length < 3) out.push({ kind: 'gf', elem: s.elem, stat: Math.random() < 0.5 ? 'lq' : 'lg', grade, name: randGongfaName(s.elem) });
-    const price = it => Math.round((it.kind === 'gf' ? 25 * it.grade : 50 + 25 * grade) * (1 + this.gm * 0.2));
+    const price = it => F.shopPrice(it.kind === 'gf' ? 'gf' : 'skill', it.kind === 'gf' ? it.grade : grade, this.gm);
     s.shop = shuffle(out).map(it => ({ ...it, price: price(it) }));
     s.shopVer++;
     s.shopT = 40;
@@ -1473,7 +1529,7 @@ class Main extends Phaser.Scene {
     return gs[0];
   }
 
-  craftCost(g) { return Math.round(40 * g * (1 + this.gm * 0.1)); }
+  craftCost(g) { return F.craftCost(g, this.gm); }
 
   pendingCraftCost() {
     let min = 0;
@@ -1651,9 +1707,9 @@ class Main extends Phaser.Scene {
     return out;
   }
 
-  lvAmt(kind) { return kind === 'lg' ? 0.07 + 0.01 * this.P.realm : 0.1 + 0.02 * this.P.realm; }
+  lvAmt(kind) { return F.levelAmt(kind, this.P.realm); }
 
-  gfAmt(o) { return o.stat === 'lq' ? 0.08 + 0.03 * o.grade : 0.06 + 0.02 * o.grade; }
+  gfAmt(o) { return F.gongfaAmt(o.stat, o.grade); }
 
   optLabel(o) {
     const c = e => ELEM_CSS[e];
@@ -1748,7 +1804,7 @@ class Main extends Phaser.Scene {
     u.lineStyle(1, 0x7fffe0, 0.12).strokeCircle(P.x, P.y, this.pickupR());
     // 萬木回春光環
     const wm = P.skills.find(s => s.id === 'wanmu');
-    if (wm && !P.meditating) u.fillStyle(ELEM_HEX['木'], 0.08).fillCircle(P.x, P.y, 85 + wm.lvl * 10);
+    if (wm && !P.meditating) u.fillStyle(ELEM_HEX['木'], 0.08).fillCircle(P.x, P.y, F.shape('wanmu', wm.lvl, this.wb('木')).R);
     if (P.meditating) u.fillStyle(0x7fffe0, 0.12).fillCircle(P.x, P.y, 30);
     for (const a of this.areas) {
       switch (a.kind) {
