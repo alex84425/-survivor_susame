@@ -113,3 +113,6 @@ html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden; col
 #bonfire .mer { border: 1px solid #6b5aa0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 4px; min-height: 70px; }
 #bonfire .mer.empty { border-style: dashed; color: #6a6070; align-items: center; justify-content: center; }
 @media (max-width: 600px) { #bonfire .mers { grid-template-columns: 1fr; } }
+#bonfire.bag { border-color: #6b5aa0; box-shadow: 0 0 40px rgba(150,120,255,.25); }
+#bonfire.bag .bfhead b { color: #c0a0ff; }
+#bonfire .warn { color: #ff8060; font-size: 12px; margin-left: 8px; }

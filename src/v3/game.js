@@ -36,7 +36,7 @@ class Arena extends Phaser.Scene {
     this.vfx = new Vfx(this);
     this.tele = this.add.graphics().setDepth(1);
     this.fx = this.add.graphics().setDepth(6);
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,SHIFT,Q,E,R,F,ENTER,M,B,ONE,TWO,THREE');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,SHIFT,Q,E,R,F,ENTER,M,B,ONE,TWO,THREE,FOUR');
     this.input.keyboard.on('keydown', initAudio);
     this.input.on('pointerdown', initAudio);
     this.input.mouse.disableContextMenu();
@@ -62,7 +62,7 @@ class Arena extends Phaser.Scene {
     this.genWorld();
     hud.start(this);
     hud.toast(`主修：${this.P.elem}・${this.P.cls.name}。點亮篝火得心法、清妖巢開寶箱、殺怪得靈石回篝火升級。兩夜之後斬殺妖皇！`);
-    hud.toast('左鍵普攻・右鍵戰技・E 撿到的戰技・Q 大招・空白閃避・R 丹藥・F 篝火/寶箱/處決', '#999');
+    hud.toast('左鍵普攻・右鍵／E 神通・Q 大招・空白閃避・R 丹藥・F 篝火/寶箱/處決・Tab 行囊（換神通、功法）', '#999');
     startBgmFile();
   }
 
@@ -138,25 +138,58 @@ class Arena extends Phaser.Scene {
   gainGongfa(id, tier) {
     const P = this.P, G = GONGFA[id], item = { id, tier };
     const name = `${id}・${TIER_CN[tier]}`;
+    const keep = () => { P.gf.push(item); hud.toast(`功法 <b>${name}</b> 收進行囊（Tab 打開）`, '#c0a0ff'); };
     if (G.slot === '經脈') {
-      const i = P.mer.findIndex(m => !m);
-      if (i >= 0 && !P.mer.some(m => m && m.id === id)) { P.mer[i] = item; this.recalc(); hud.toast(`功法 <b>${name}</b> 運入經脈：${gfDesc(id, tier)}`, '#c0a0ff'); return; }
-    } else {
-      for (const k of ['R', 'E']) {
-        const inst = P.equip[k];
-        if (inst && this.canInscribe(inst, item) === true) { inst.ins.push(item); hud.toast(`功法 <b>${name}</b> 銘刻到 ${SKILLS[inst.id].name}：${gfDesc(id, tier)}`, '#c0a0ff'); return; }
+      const same = P.mer.findIndex(m => m && m.id === id);
+      if (same >= 0) {
+        if (P.mer[same].tier >= tier) { keep(); return; }
+        P.gf.push(P.mer[same]); P.mer[same] = item; this.recalc();
+        hud.toast(`經脈的 <b>${id}</b> 升為${TIER_CN[tier]}`, '#c0a0ff'); return;
       }
+      const i = P.mer.findIndex(m => !m);
+      if (i >= 0) { P.mer[i] = item; this.recalc(); hud.toast(`功法 <b>${name}</b> 運入經脈：${gfDesc(id, tier)}`, '#c0a0ff'); return; }
+      // 經脈滿了：當場選要取代哪一條
+      const opts = P.mer.map(m => ({ label: `取代 ${m.id}・${TIER_CN[m.tier]}`, desc: `換成 ${name}：${gfDesc(id, tier)}（舊的收進行囊）` }));
+      opts.push({ label: '收進行囊', desc: '之後按 Tab 再換' });
+      this.offer(`得到 ${name}・經脈已滿`, opts, j => {
+        if (j >= 3) { keep(); return; }
+        P.gf.push(P.mer[j]); P.mer[j] = item; this.recalc();
+        hud.toast(`功法 <b>${name}</b> 運入經脈`, '#c0a0ff');
+      });
+      return;
     }
-    P.gf.push(item);
-    hud.toast(`得到功法卷軸 <b>${name}</b>（到篝火裝備）`, '#c0a0ff');
+    for (const k of ['R', 'E']) {
+      const inst = P.equip[k];
+      if (inst && this.canInscribe(inst, item) === true) { inst.ins.push(item); hud.toast(`功法 <b>${name}</b> 銘刻到 ${SKILLS[inst.id].name}：${gfDesc(id, tier)}`, '#c0a0ff'); return; }
+    }
+    // 裝備中的神通槽滿了：當場選要取代哪一條銘刻（被換下的降一品）
+    const opts = [], acts = [];
+    for (const k of ['R', 'E']) {
+      const inst = P.equip[k];
+      if (!inst || this.canInscribe(inst, item, true) !== true) continue;
+      inst.ins.forEach((g, j) => {
+        opts.push({ label: `${SKILLS[inst.id].name}：取代 ${g.id}・${TIER_CN[g.tier]}`, desc: `換成 ${name}：${gfDesc(id, tier)}（舊的${g.tier ? '降一品收進行囊' : '一品會消失'}）`, elem: SKILLS[inst.id].elem });
+        acts.push([inst, j]);
+      });
+    }
+    if (!opts.length) { keep(); return; }
+    opts.splice(3);
+    opts.push({ label: '收進行囊', desc: '之後按 Tab 再換' });
+    this.offer(`得到 ${name}・銘刻槽已滿`, opts, j => {
+      if (j >= acts.length || j >= 3) { keep(); return; }
+      const [inst, slot] = acts[j], old = inst.ins[slot];
+      inst.ins[slot] = item;
+      if (old.tier > 0) P.gf.push({ id: old.id, tier: old.tier - 1 });
+      hud.toast(`功法 <b>${name}</b> 銘刻到 ${SKILLS[inst.id].name}`, '#c0a0ff');
+    });
   }
 
-  canInscribe(inst, item) {
+  canInscribe(inst, item, ignoreFull) {
     const S = SKILLS[inst.id], G = GONGFA[item.id];
     if (G.slot !== '神通') return '這是經脈功法';
     if (G.need === 'chain' && !S.chain) return '只能銘刻在連段神通';
     if (G.need === 'charge' && !S.charge) return '只能銘刻在蓄力神通';
-    if (inst.ins.length >= inscribeSlots(S.q, inst.plus)) return '銘刻槽已滿';
+    if (!ignoreFull && inst.ins.length >= inscribeSlots(S.q, inst.plus)) return '銘刻槽已滿';
     if (inst.ins.some(g => g.id === item.id)) return '已經有同名功法';
     if (S.innate[0] === item.id && item.tier <= innateTier(S, inst.plus)) return '天生功法品階已經一樣或更高';
     return true;
@@ -327,7 +360,8 @@ class Arena extends Phaser.Scene {
             break;
         }
         if (n) { this.hitstop = Math.max(this.hitstop, last ? 0.08 : 0.035); if (last) { this.cameras.main.shake(140, 0.006); this.vfx.punch(0.035); } }
-        if (last) sfx.slam(); else sfx.shoot(ch.S.elem);
+        sfx.swing(ch.S.elem, last);
+        if (last) sfx.slam();
       },
     });
   }
@@ -480,8 +514,9 @@ class Arena extends Phaser.Scene {
       this.offerGongfa('點亮篝火・五行祖師傳下功法', [0.8, 0.2, 0]);
       return;
     }
+    if (this.bag) hud.closeBonfire(this);
     this.paused = true;
-    hud.bonfire(this);
+    hud.bonfire(this, null, 'fire');
   }
 
   // ---------- 抉擇（遊戲不暫停） ----------
@@ -576,11 +611,22 @@ class Arena extends Phaser.Scene {
     return e;
   }
 
+  inCombat() { return this.t < (this.combatUntil || 0); }
+
+  // 行囊：隨時換神通、經脈、銘刻（升級與強化仍要在篝火）
+  toggleBag() {
+    if (this.paused || this.over) return;
+    if (this.bag) { hud.closeBonfire(this); return; }
+    this.bag = true;
+    hud.bonfire(this, null, 'bag');
+  }
+
   // ---------- 主迴圈 ----------
   update(_, deltaMs) {
-    const raw = Math.min(deltaMs / 1000, 0.05);
+    let raw = Math.min(deltaMs / 1000, 0.05);
     if (this.over) return;
-    if (this.paused) { this.clickL = this.clickR = this.upL = 0; return; }
+    if (this.paused || (this.bag && !this.inCombat())) { this.clickL = this.clickR = this.upL = 0; return; }
+    if (this.bag) raw *= 0.2;
     this.updateTexts(raw);
     if (this.hitstop > 0) { this.hitstop -= raw; this.draw(); return; }
     if (this.slowmo > 0) this.slowmo -= raw;
@@ -588,7 +634,7 @@ class Arena extends Phaser.Scene {
     const dt = raw, edt = raw * ets;
     this.t += dt;
     this.updateNight(dt);
-    this.updatePlayer(dt);
+    if (this.bag) { this.clickL = this.clickR = this.upL = 0; } else this.updatePlayer(dt);
     this.updateEnemies(edt);
     this.updateCamps();
     this.updatePProj(dt);
@@ -727,7 +773,7 @@ class Arena extends Phaser.Scene {
     if (Rp) this.useSkill('R');
     if (JD(k.E)) this.useSkill('E');
     // 抉擇
-    if (this.choice) { if (JD(k.ONE)) this.pickChoice(0); else if (JD(k.TWO)) this.pickChoice(1); else if (JD(k.THREE)) this.pickChoice(2); }
+    if (this.choice) { if (JD(k.ONE)) this.pickChoice(0); else if (JD(k.TWO)) this.pickChoice(1); else if (JD(k.THREE)) this.pickChoice(2); else if (JD(k.FOUR)) this.pickChoice(3); }
     // 大招
     if (JD(k.Q)) {
       if (P.ult < 100) hud.toast(`大招氣 ${Math.floor(P.ult)}%`, '#ffd98a');
@@ -782,7 +828,7 @@ class Arena extends Phaser.Scene {
         P.lean = s.heavy ? 0.3 : 0.18; P.sq = s.heavy ? 0.12 : 0.06;
         this.slashFx(P.x, P.y, ang, s.range, s.half, ELEM_HEX[P.elem], s.heavy);
         const n = this.hitArc(P.x, P.y, ang, s.range, s.half, s.dmg, { poise: s.poise, basic: true, melee: true, heavy: s.heavy, kb: s.heavy ? 240 : 110 });
-        sfx.shoot(P.elem);
+        sfx.swing(P.elem, s.heavy);
         if (n) {
           this.hitstop = Math.max(this.hitstop, s.heavy ? 0.07 : 0.03);
           if (C.basic.mpHit) P.mp = Math.min(P.maxMp, P.mp + C.basic.mpHit * n);
@@ -973,7 +1019,7 @@ class Arena extends Phaser.Scene {
     if (!o.dot) {
       this.vfx.hit(e.x, e.y, ELEM_HEX[elem], o.heavy || crit);
       if (o.heavy || crit) this.vfx.punch(o.exec ? 0.07 : 0.025);
-      sfx.hit();
+      sfx.hit(elem, o.heavy || o.exec || o.finisher, crit);
     }
     if (!e.aggro) this.alert(e);
     // 韌性：土屬性與破甲加成
@@ -1063,7 +1109,7 @@ class Arena extends Phaser.Scene {
     P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.05);
     P.ult = Math.min(100, P.ult + 15);
     if (this.gt('處決者') >= 0) { P.execBuffT = 5; P.execBuff = this.mv('處決者', 'v2'); }
-    sfx.slam();
+    sfx.execute();
   }
 
   alert(e) {
@@ -1783,15 +1829,18 @@ const hud = {
   showChoice(s) {
     const c = s.choice, box = $('choice');
     box.classList.remove('hidden'); $('v3hud').classList.add('choosing');
-    box.innerHTML = `<div class="ctitle">${c.title}<span class="small">　1／2／3 或點選（遊戲不會暫停）</span></div><div class="copts">${c.opts.map((o, i) =>
+    box.innerHTML = `<div class="ctitle">${c.title}<span class="small">　按 ${c.opts.map((_, i) => i + 1).join("／")} 或點選（遊戲不會暫停）</span></div><div class="copts">${c.opts.map((o, i) =>
       `<div class="copt${o.duo ? ' duo' : ''}" data-i="${i}" style="border-color:${o.elem ? ELEM_CSS[o.elem] : '#6b5a2e'}"><div class="k">${i + 1}</div><div class="n" style="color:${o.elem ? ELEM_CSS[o.elem] : '#ffd98a'}">${o.label}</div><div class="d">${o.desc}</div></div>`).join('')}</div>`;
     box.querySelectorAll('.copt').forEach(el => el.onclick = () => s.pickChoice(+el.dataset.i));
   },
   hideChoice() { $('choice').classList.add('hidden'); $('v3hud').classList.remove('choosing'); },
   // ---------- 篝火介面（暫停遊戲） ----------
-  bonfire(s, tab) {
+  bonfire(s, tab, mode) {
     const box = $('bonfire'), P = s.P;
-    this.bfTab = tab || this.bfTab || 'lv';
+    if (mode) this.bfMode = mode;
+    const bag = this.bfMode === 'bag';
+    this.bfTab = tab || this.bfTab || (bag ? 'gf' : 'lv');
+    if (bag && this.bfTab === 'lv') this.bfTab = 'gf';
     box.classList.remove('hidden');
     const t = this.bfTab;
     const ec = (e, x = e) => `<span style="color:${ELEM_CSS[e]}">${x}</span>`;
@@ -1820,7 +1869,7 @@ const hud = {
           <div class="small">補正 ${Object.entries(S.sc).map(([e, g]) => ec(e, `${e}${g}`)).join(' ')}・需求 <span style="color:${okReq ? '#9c968a' : '#ff6060'}">${Object.entries(S.req).map(([e, n]) => `${e}${n}`).join(' ')}</span>・${S.cost} 真元／${S.cd}s・傷害倍率 ×${s.skillMul(inst).toFixed(2)}</div>
           <div class="gfs"><span class="gf innate">天生 ${S.innate[0]}${'ⅠⅡⅢ'[innateTier(S, inst.plus)]}</span>${ins}</div>
           <div class="btns"><button data-act="eq" data-k="R" data-i="${idx}" ${eq === 'R' ? 'disabled' : ''}>裝到右鍵</button><button data-act="eq" data-k="E" data-i="${idx}" ${eq === 'E' ? 'disabled' : ''}>裝到 E</button>
-          ${fc ? `<button data-act="forge" data-i="${idx}" ${canForge ? '' : 'disabled'}>強化 +${inst.plus + 1}：${fc.mat}×${fc.n}、靈石 ${fc.runes}</button>` : '<span class="small">已強化到頂</span>'}</div></div>`;
+          ${!fc ? '<span class="small">已強化到頂</span>' : bag ? `<span class="small">強化 +${inst.plus + 1} 要在篝火（${fc.mat}×${fc.n}、靈石 ${fc.runes}）</span>` : `<button data-act="forge" data-i="${idx}" ${canForge ? '' : 'disabled'}>強化 +${inst.plus + 1}：${fc.mat}×${fc.n}、靈石 ${fc.runes}</button>`}</div></div>`;
       }).join('') + `<p class="small">強化：凡品每級傷害 +10%，+3 天生功法升一品，+5 開第二個銘刻槽；天品每級 +18%，+3 天生功法三品並開第二槽。</p>`;
     } else {
       const mer = P.mer.map((g, j) => g
@@ -1836,8 +1885,11 @@ const hud = {
       body = `<h3>經脈（全身生效，同名不疊加）</h3><div class="mers">${mer}</div><h3>功法卷軸</h3>${inv}
         <p class="small">神通類功法銘刻在神通上，只影響那門神通；從神通上拆下會降一品（一品會消失）。</p>`;
     }
-    box.innerHTML = `<div class="bfhead"><b>篝火</b>　Lv${P.level}・靈石 ${P.runes}　${mats}<button class="close" data-act="close">離開（F／Esc）</button></div>
-      <div class="bftabs">${[['lv', '升級・屬性'], ['sk', `神通（${P.skills.length}）`], ['gf', `功法・經脈（${P.gf.length}）`]].map(([k, n]) => `<button data-tab="${k}" class="${t === k ? 'on' : ''}">${n}</button>`).join('')}</div>
+    const head = bag ? `<b>行囊</b>${s.inCombat() ? '<span class="warn">戰鬥中：時間變慢，但沒有停</span>' : '<span class="small">（暫停中）</span>'}` : '<b>篝火</b>';
+    const tabs = [['lv', '升級・屬性'], ['sk', `神通（${P.skills.length}）`], ['gf', `功法・經脈（${P.gf.length}）`]].filter(([k]) => !bag || k !== 'lv');
+    box.classList.toggle('bag', bag);
+    box.innerHTML = `<div class="bfhead">${head}　Lv${P.level}・靈石 ${P.runes}　${mats}<button class="close" data-act="close">離開（${bag ? 'Tab' : 'F'}／Esc）</button></div>
+      <div class="bftabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${t === k ? 'on' : ''}">${n}</button>`).join('')}</div>
       <div class="bfbody">${body}</div>`;
     box.onclick = ev => {
       const b = ev.target.closest('[data-act],[data-tab]');
@@ -1865,7 +1917,7 @@ const hud = {
   },
   closeBonfire(s) {
     $('bonfire').classList.add('hidden');
-    s.paused = false;
+    s.paused = false; s.bag = false;
     s.input.keyboard.resetKeys();
   },
   toast(msg, color = '#ffd98a') {
@@ -1948,7 +2000,14 @@ function start(e) {
 }
 
 window.addEventListener('keydown', ev => {
-  if (!$('bonfire').classList.contains('hidden') && (ev.key === 'Escape' || ev.key === 'f' || ev.key === 'F')) { hud.closeBonfire(game.scene.getScene('arena')); return; }
+  const open = !$('bonfire').classList.contains('hidden');
+  if (game && $('select').classList.contains('hidden') && (ev.key === 'Tab' || ev.key === 'i' || ev.key === 'I')) {
+    ev.preventDefault();
+    const sc = game.scene.getScene('arena');
+    if (open && !sc.bag) { hud.closeBonfire(sc); return; }
+    sc.toggleBag(); return;
+  }
+  if (open && (ev.key === 'Escape' || ev.key === 'f' || ev.key === 'F')) { hud.closeBonfire(game.scene.getScene('arena')); return; }
   if (!$('select').classList.contains('hidden')) {
     const i = +ev.key - 1;
     if (i >= 0 && i < 5) start(ELEMS[i]);

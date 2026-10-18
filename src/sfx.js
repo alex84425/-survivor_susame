@@ -16,7 +16,10 @@ function throttle(name, ms) {
 export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
   ctx = new (window.AudioContext || window.webkitAudioContext)();
-  master = ctx.createGain(); master.gain.value = muted ? 0 : 0.6; master.connect(ctx.destination);
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 6; comp.attack.value = 0.002; comp.release.value = 0.12;
+  comp.connect(ctx.destination);
+  master = ctx.createGain(); master.gain.value = muted ? 0 : 0.6; master.connect(comp);
   sfxBus = ctx.createGain(); sfxBus.gain.value = 0.55; sfxBus.connect(master);
   bgmBus = ctx.createGain(); bgmBus.gain.value = bgmOn ? 0.32 : 0; bgmBus.connect(master);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
@@ -89,13 +92,60 @@ export const sfx = {
       case '土': tone({ freq: 150, to: 70, type: 'square', dur: 0.14, vol: 0.06, filter: 600 }); break;
     }
   },
-  hit() { if (throttle('hit', 45)) noise({ dur: 0.05, vol: 0.06, type: 'highpass', freq: 2500 }); },
+  // 打擊：低頻撞擊＋中頻碎裂＋屬性質感；重擊更厚更長，暴擊加一聲清脆的金屬鳴
+  hit(elem, heavy, crit) {
+    if (!heavy && !crit && !throttle('hit', 35)) return;
+    const p = 0.92 + Math.random() * 0.16;
+    if (heavy) {
+      tone({ freq: 130 * p, to: 38, type: 'sine', dur: 0.2, vol: 0.42 });
+      noise({ dur: 0.2, vol: 0.32, type: 'lowpass', freq: 1600, to: 180 });
+      noise({ dur: 0.05, vol: 0.28, type: 'bandpass', freq: 2200 * p, q: 0.7 });
+    } else {
+      tone({ freq: 190 * p, to: 60, type: 'sine', dur: 0.09, vol: 0.28 });
+      noise({ dur: 0.06, vol: 0.24, type: 'bandpass', freq: 1700 * p, q: 0.8 });
+    }
+    switch (elem) {
+      case '金':
+        tone({ freq: 2300 * p, to: 2150 * p, type: 'triangle', dur: heavy ? 0.22 : 0.12, vol: 0.07 });
+        tone({ freq: 3550 * p, type: 'sine', dur: heavy ? 0.16 : 0.08, vol: 0.045 });
+        break;
+      case '木': tone({ freq: 540 * p, to: 380, type: 'square', dur: 0.06, vol: 0.09, filter: 1600 }); break;
+      case '水': noise({ dur: heavy ? 0.22 : 0.13, vol: 0.14, type: 'bandpass', freq: 700, to: 2600, q: 2 }); break;
+      case '火':
+        noise({ dur: 0.16, vol: 0.1, type: 'highpass', freq: 2200 });
+        noise({ dur: 0.03, vol: 0.1, type: 'highpass', freq: 4000, delay: 0.05 });
+        noise({ dur: 0.03, vol: 0.08, type: 'highpass', freq: 4000, delay: 0.09 });
+        break;
+      case '土': tone({ freq: 75 * p, to: 32, type: 'sine', dur: heavy ? 0.32 : 0.18, vol: 0.3 }); break;
+    }
+    if (crit) {
+      tone({ freq: 3100, type: 'triangle', dur: 0.25, vol: 0.09 });
+      tone({ freq: 4650, type: 'sine', dur: 0.18, vol: 0.05, delay: 0.015 });
+    }
+  },
+  // 揮擊破風聲
+  swing(elem, heavy) {
+    if (!throttle('swing', 60)) return;
+    const p = 0.9 + Math.random() * 0.2;
+    noise({ dur: heavy ? 0.22 : 0.12, vol: heavy ? 0.16 : 0.1, type: 'bandpass', freq: (heavy ? 280 : 550) * p, to: (heavy ? 1500 : 2600) * p, q: 1.6 });
+    if (elem === '金') tone({ freq: 1800 * p, to: 2600 * p, type: 'sine', dur: 0.08, vol: 0.025 });
+  },
+  execute() {
+    tone({ freq: 110, to: 30, type: 'sine', dur: 0.45, vol: 0.5 });
+    noise({ dur: 0.45, vol: 0.35, type: 'lowpass', freq: 2000, to: 100 });
+    tone({ freq: 2600, to: 2400, type: 'triangle', dur: 0.4, vol: 0.1, delay: 0.02 });
+  },
   kill() { if (throttle('kill', 60)) tone({ freq: 300, to: 120, type: 'triangle', dur: 0.08, vol: 0.06 }); },
   stone() { if (throttle('stone', 70)) tone({ freq: 1800 + Math.random() * 400, type: 'sine', dur: 0.07, vol: 0.04 }); },
   item() { [0, 2, 4].forEach((d, i) => tone({ freq: note(d, 1), type: 'triangle', dur: 0.18, vol: 0.09, delay: i * 0.06 })); },
   levelup() { [0, 1, 2, 3, 4, 5].forEach((d, i) => tone({ freq: note(d, 1), type: 'triangle', dur: 0.25, vol: 0.1, delay: i * 0.05 })); },
   select() { tone({ freq: note(4, 1), type: 'triangle', dur: 0.15, vol: 0.1 }); },
-  hurt() { if (throttle('hurt', 160)) tone({ freq: 180, to: 60, type: 'square', dur: 0.15, vol: 0.09, filter: 900 }); },
+  hurt() {
+    if (!throttle('hurt', 160)) return;
+    tone({ freq: 150, to: 45, type: 'sine', dur: 0.18, vol: 0.35 });
+    tone({ freq: 220, to: 70, type: 'square', dur: 0.15, vol: 0.1, filter: 900 });
+    noise({ dur: 0.12, vol: 0.2, type: 'lowpass', freq: 1200, to: 200 });
+  },
   roar() {
     if (!throttle('roar', 400)) return;
     tone({ freq: 110, to: 45, type: 'sawtooth', dur: 0.9, vol: 0.16, filter: 500, attack: 0.05 });
