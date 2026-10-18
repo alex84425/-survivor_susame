@@ -14,6 +14,7 @@ export class Hud {
     $('shop').classList.add('hidden');
     $('toasts').innerHTML = '';
     $('state').textContent = '';
+    $('banner').classList.remove('show');
     this.choiceKey = null;
     this.shopKey = null;
   }
@@ -27,6 +28,12 @@ export class Hud {
     box.prepend(d);
     while (box.children.length > 6) box.lastChild.remove();
     setTimeout(() => d.remove(), 6000);
+  }
+
+  banner(text) {
+    const b = $('banner');
+    b.textContent = text;
+    b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
   }
 
   update(g) {
@@ -90,7 +97,8 @@ export class Hud {
     $('prompt').innerHTML = pr;
 
     let st = '';
-    if (g.trib) st = `⚡ 天劫降臨！撐過 ${g.trib.t.toFixed(1)} 秒 ⚡`;
+    if (g.duel) st = `⚔ 異空間單挑 ${g.duel.name}　${Math.ceil(g.duel.boss.hp / g.duel.boss.maxHp * 100)}%　剩 ${Math.ceil(g.duel.t)} 秒`;
+    else if (g.trib) st = `⚡ 天劫降臨！撐過 ${g.trib.t.toFixed(1)} 秒 ⚡`;
     else if (P.meditating) st = P.stones > 0 ? '打坐煉化靈石中…' : '打坐中（沒有靈石）';
     $('state').textContent = st;
 

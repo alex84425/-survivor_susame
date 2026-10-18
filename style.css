@@ -28,7 +28,11 @@ html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden;
 .small { font-size: 11px; color: #9c968a; }
 
 #prompt { position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); font-size: 15px; color: #fff; text-shadow: 0 0 4px #000; }
-#state { position: absolute; top: 40%; left: 50%; transform: translateX(-50%); font-size: 18px; color: #ffd98a; text-shadow: 0 0 6px #000; }
+#banner { position: absolute; top: 22%; left: 0; right: 0; text-align: center; font-size: 38px; font-weight: bold; letter-spacing: 8px;
+  color: #ff5050; text-shadow: 0 0 12px #000, 0 0 24px #a00; opacity: 0; }
+#banner.show { animation: banner 2.8s ease-out forwards; }
+@keyframes banner { 0% { opacity: 0; transform: scale(1.6); } 12% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; } }
+#state { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); font-size: 18px; color: #ffd98a; text-shadow: 0 0 6px #000; }
 
 .box { position: absolute; left: 50%; transform: translateX(-50%); background: rgba(14,14,22,.92); border: 1px solid #6b5a2e; border-radius: 10px; padding: 10px; pointer-events: auto; }
 #choice { bottom: 34px; width: min(640px, calc(100vw - 16px)); z-index: 2; }

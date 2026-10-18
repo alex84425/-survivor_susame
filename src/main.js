@@ -157,7 +157,7 @@ class Main extends Phaser.Scene {
     makeTextures(this);
     this.duration = DURATION;
     this.cameras.main.setBounds(0, 0, WORLD, WORLD);
-    this.add.tileSprite(0, 0, WORLD, WORLD, 'bgtile').setOrigin(0).setDepth(-10);
+    this.bg = this.add.tileSprite(0, 0, WORLD, WORLD, 'bgtile').setOrigin(0).setDepth(-10);
     this.under = this.add.graphics().setDepth(-5);
     this.fx = this.add.graphics().setDepth(6);
     this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,Q,R,E,F,ONE,TWO,THREE,Z,X,C,ENTER,M,B');
@@ -173,6 +173,7 @@ class Main extends Phaser.Scene {
     this.spawnAcc = 0; this.bossCount = 0;
     this.sectT = 3; this.pbT = 12; this.hudT = 0; this.sectTick = 0;
     this.choice = null; this.pendingChoices = 0; this.choiceId = 0;
+    this.duel = null; this.duelPending = null;
     this.trib = null; this.over = false; this.idSeq = 1; this.craftReserve = 0;
     this.phaseOrder = shuffle([...ELEMS]); this.phaseIdx = -1;
 
@@ -251,7 +252,13 @@ class Main extends Phaser.Scene {
     this.gm = this.t / DURATION * 30;
 
     this.updatePhase();
-    setIntensity(this.trib || this.enemies.some(e => e.boss) ? 1 : 0);
+    setIntensity(this.duel ? 2 : this.trib || this.enemies.some(e => e.boss) ? 1 : 0);
+    if (this.duel) { this.duel.t -= dt; if (this.duel.t <= 0) this.endDuel(false); }
+    if (this.duelPending && (this.duelPending.t -= dt) <= 0) {
+      const b = this.duelPending.boss;
+      this.duelPending = null;
+      if (b.hp > 0 && !this.duel) this.startDuel(b);
+    }
     this.updateInput(dt);
     this.spawnEnemies(dt);
     this.buildGrid();
@@ -293,6 +300,7 @@ class Main extends Phaser.Scene {
       P.x = clamp(P.x + mx / l * sp * dt, 15, WORLD - 15);
       P.y = clamp(P.y + my / l * sp * dt, 15, WORLD - 15);
     }
+    if (this.duel) this.clampToArena(P, P.r);
     P.sprite.setPosition(P.x, P.y);
 
     // 神識
@@ -347,6 +355,7 @@ class Main extends Phaser.Scene {
 
   // ---------- 敵人 ----------
   spawnEnemies(dt) {
+    if (this.duel) return;
     this.spawnAcc += dt * (1.2 + this.gm * 0.55);
     while (this.spawnAcc >= 1) {
       this.spawnAcc--;
@@ -356,9 +365,13 @@ class Main extends Phaser.Scene {
     if (bi > this.bossCount) {
       this.bossCount = bi;
       const bt = pick(BOSS_TYPES);
-      this.spawnEnemy(bt);
+      const boss = this.spawnEnemy(bt);
       this.hud.toast(`妖王 <b style="color:#e05555">${ENEMY_TYPES[bt].name}</b> 現世！`, '#e05555');
+      this.hud.banner(`妖王「${ENEMY_TYPES[bt].name}」現世`);
+      this.cameras.main.shake(500, 0.008);
       sfx.roar();
+      // 一半機率把玩家拖入異空間單挑（網址加 ?duel=1 必定觸發）
+      if (params.get('duel') === '1' || Math.random() < 0.5) this.duelPending = { boss, t: 1.5 };
     }
   }
 
@@ -375,13 +388,67 @@ class Main extends Phaser.Scene {
     const a = rand(0, Math.PI * 2), R = rand(650, 820);
     const x = clamp(at ? at.x : P.x + Math.cos(a) * R, 20, WORLD - 20), y = clamp(at ? at.y : P.y + Math.sin(a) * R, 20, WORLD - 20);
     const hp = T.hp * (1 + gm * 0.25 + gm * gm * 0.02);
-    this.enemies.push({
+    const e = {
       type, elem, x, y, r: T.r, hp, maxHp: hp, boss: !!T.boss, charger: !!T.charger, face: T.face || 0,
       speed: T.speed * rand(0.9, 1.1) * (1 + gm * 0.01), dmg: T.dmg * (1 + gm * 0.08),
       realm: Math.min(4, Math.floor(gm / 6)) + (T.boss ? 1 : 0),
       touchCd: 0, slowT: 0, slowF: 1, kx: 0, ky: 0, flash: 0, target: null, retarget: rand(0, 0.5), shootT: rand(1, 3),
       sprite: this.add.image(x, y, `e_${type}_${elem}`).setDepth(T.boss ? 3 : 2),
-    });
+      duelMinion: !!this.duel,
+    };
+    this.enemies.push(e);
+    return e;
+  }
+
+  // ---------- 異空間單挑 ----------
+  frozen(e) { return this.duel && e !== this.duel.boss && !e.duelMinion; }
+
+  clampToArena(o, r) {
+    const D = this.duel, dx = o.x - D.cx, dy = o.y - D.cy, l = Math.hypot(dx, dy), max = D.R - r;
+    if (l > max) { o.x = D.cx + dx / l * max; o.y = D.cy + dy / l * max; }
+  }
+
+  startDuel(boss) {
+    const P = this.P;
+    this.duel = { boss, cx: P.x, cy: P.y, R: 380, t: 75, name: ENEMY_TYPES[boss.type].name };
+    const a = rand(0, Math.PI * 2);
+    boss.x = P.x + Math.cos(a) * 260; boss.y = P.y + Math.sin(a) * 260;
+    boss.target = P; boss.act = null; boss.skillT = 1.5;
+    for (const e of this.enemies) if (e !== boss) e.sprite.setVisible(false);
+    for (const pb of this.pbs) { pb.sprite.setVisible(false); pb.label.setVisible(false); }
+    for (const s of this.sects) { s.sprite.setVisible(false); s.label.setVisible(false); }
+    for (const d of this.drops) { d.hidden = true; d.sprite.setVisible(false); }
+    for (const p of this.projs) if (p.team === 'foe') { p.dead = true; p.sprite.destroy(); }
+    this.projs = this.projs.filter(p => !p.dead);
+    this.bg.setTint(0x6a3a90);
+    this.cameras.main.flash(500, 140, 60, 220);
+    this.hud.banner(`${this.duel.name} 將你拖入異空間！`);
+    this.hud.toast('⚔ 異空間單挑：75 秒內斬殺妖王可得重寶，否則空間崩塌', '#b060ff');
+    sfx.roar();
+  }
+
+  endDuel(win) {
+    const D = this.duel;
+    if (!D) return;
+    this.duel = null;
+    for (const e of this.enemies) if (e.hp > 0) e.sprite.setVisible(true);
+    for (const pb of this.pbs) { pb.sprite.setVisible(true); pb.label.setVisible(true); }
+    for (const s of this.sects) { s.sprite.setVisible(true); s.label.setVisible(true); }
+    for (const d of this.drops) if (d.hidden) { d.hidden = false; d.sprite.setVisible(true); }
+    for (const e of this.enemies) e.duelMinion = false;
+    this.bg.clearTint();
+    this.cameras.main.flash(400, 255, 255, 255);
+    if (win) {
+      const b = D.boss, g = clamp(this.curGrade() + 2, 1, 9);
+      for (const part of PARTS) this.spawnDrop('mat', b.x, b.y, { elem: b.elem, part, grade: g });
+      this.spawnDrop('scroll', b.x, b.y, { item: this.pbLoot({ elem: b.elem, power: 2 }) });
+      for (let i = 0; i < 2; i++) this.spawnDrop('dan', b.x, b.y, { elem: b.elem });
+      this.hud.banner('斬殺妖王・破開異空間');
+      this.hud.toast(`單挑勝利！獲得${GRADE_CN[g]}品材料一套、傳承卷軸、妖丹`, '#ffd98a');
+    } else {
+      this.hud.banner('異空間崩塌');
+      this.hud.toast(`${D.name} 隨你一同回到戰場…`, '#e05555');
+    }
   }
 
   buildGrid() {
@@ -403,7 +470,7 @@ class Main extends Phaser.Scene {
       const a = this.grid.get(cx * 1000 + cy);
       if (!a) continue;
       for (const e of a) {
-        if (e.hp <= 0) continue;
+        if (e.hp <= 0 || this.frozen(e)) continue;
         const rr = r + e.r;
         if (d2(e.x, e.y, x, y) <= rr * rr) out.push(e);
       }
@@ -412,7 +479,7 @@ class Main extends Phaser.Scene {
   }
 
   // 玩家可攻擊的目標：妖獸 + 敵對路人
-  hostilePbs() { return this.pbs.filter(p => p.state === 'hostile' || p.state === 'fleeing'); }
+  hostilePbs() { return this.duel ? [] : this.pbs.filter(p => p.state === 'hostile' || p.state === 'fleeing'); }
 
   nearestTarget(x, y, range) {
     let best = null, bd = range * range;
@@ -445,7 +512,7 @@ class Main extends Phaser.Scene {
   updateEnemies(dt) {
     const P = this.P;
     for (const e of this.enemies) {
-      if (e.hp <= 0) continue;
+      if (e.hp <= 0 || this.frozen(e)) continue;
       let ts = P.slowActive ? this.realmSlow(e.realm) : 1;
       if (e.slowT > 0) { e.slowT -= dt; ts *= e.slowF; }
       e.retarget -= dt;
@@ -487,6 +554,7 @@ class Main extends Phaser.Scene {
         }
       }
       e.x = clamp(e.x, 10, WORLD - 10); e.y = clamp(e.y, 10, WORLD - 10);
+      if (this.duel) this.clampToArena(e, e.r);
       // 接觸傷害
       e.touchCd -= dt * ts;
       const rr = e.r + tg.r;
@@ -636,6 +704,7 @@ class Main extends Phaser.Scene {
     if (e.boss) {
       for (let i = 0; i < 12; i++) this.spawnDrop('stone', e.x, e.y, { value: T.stone * (1 + this.gm * 0.12) / 12 });
       this.hud.toast('妖王伏誅！掉落一套煉器材料', '#e05555');
+      if (this.duel && this.duel.boss === e) this.endDuel(true);
       sfx.bossDie();
     }
   }
@@ -876,6 +945,7 @@ class Main extends Phaser.Scene {
 
   updatePasserby(dt) {
     const P = this.P;
+    if (this.duel) return;
     this.pbT -= dt;
     if (this.pbT <= 0) { this.pbT = 18; if (Math.random() < 0.5) this.spawnPasserby(); }
 
@@ -1048,6 +1118,7 @@ class Main extends Phaser.Scene {
 
   updateSects(dt) {
     const P = this.P;
+    if (this.duel) { this.curSect = null; return; }
     this.sectT -= dt;
     if (this.sectT <= 0) { this.sectT = rand(18, 30); if (this.sects.length < 5) this.spawnSect(); }
     this.curSect = null;
@@ -1144,6 +1215,7 @@ class Main extends Phaser.Scene {
   updateDrops(dt) {
     const P = this.P, pr = this.pickupR();
     for (const d of this.drops) {
+      if (d.hidden) continue;
       const dd = d2(d.x, d.y, P.x, P.y);
       if (!d.mag && dd < pr * pr) d.mag = true;
       if (d.mag) {
@@ -1366,6 +1438,16 @@ class Main extends Phaser.Scene {
         f.lineStyle(e.r * 2, 0xff3030, blink).lineBetween(e.x, e.y, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
       }
       if (e.act && e.act.kind === 'summon') f.lineStyle(3, 0xff3030, 0.6).strokeCircle(e.x, e.y, e.r + 20 * (1 - e.act.t / 0.8) + 4);
+    }
+    if (this.duel) {
+      const D = this.duel, pulse = 0.6 + 0.3 * Math.sin(this.t * 4);
+      f.lineStyle(4000, 0x07000f, 0.9).strokeCircle(D.cx, D.cy, D.R + 2000);
+      f.lineStyle(8, 0xb060ff, pulse).strokeCircle(D.cx, D.cy, D.R);
+      f.lineStyle(2, 0xe0b0ff, 0.5).strokeCircle(D.cx, D.cy, D.R - 14);
+      for (let i = 0; i < 12; i++) {
+        const a = this.t * 0.6 + i / 12 * Math.PI * 2;
+        f.fillStyle(0xe0b0ff, pulse).fillCircle(D.cx + Math.cos(a) * (D.R - 7), D.cy + Math.sin(a) * (D.R - 7), 4);
+      }
     }
     // 邊界
     f.lineStyle(4, 0x6b2020, 0.8).strokeRect(0, 0, WORLD, WORLD);
