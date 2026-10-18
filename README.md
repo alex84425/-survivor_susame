@@ -6,10 +6,10 @@
 
 ## 執行
 
-需要本地伺服器（ES module 不能用 file:// 開）：
+需要本地伺服器（ES module 不能用 file:// 開）。這個伺服器會關閉快取，改完程式直接重新整理就生效：
 
 ```bash
-python -m http.server 8770
+python tools/serve.py
 ```
 
 打開 http://localhost:8770 。測試用短局：http://localhost:8770/?min=10 （10 分鐘一局，難度曲線等比壓縮）。
@@ -30,7 +30,7 @@ python -m http.server 8770
 
 ## 換成像素妖獸圖
 
-照 [tools/PROMPTS.md](tools/PROMPTS.md) 用 Gemini 生圖，存到 `assets/raw/`，再執行 `python tools/cutout.py`。
+目前的像素妖獸由 Gemini 網頁版生成。要重做或新增：照 [tools/PROMPTS.md](tools/PROMPTS.md) 用 Gemini 生圖，存到 `assets/raw/`，再執行 `python tools/cutout.py`。
 
 ## 結構
 

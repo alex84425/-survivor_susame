@@ -1,7 +1,7 @@
 // 修仙倖存者 — 主場景
 import {
   ELEMS, ELEM_CSS, ELEM_DARK, ELEM_HEX, OVERCOMES, elemMult, REALMS, GRADE_CN, PARTS,
-  SKILLS, SKILL_IDS, MAX_SKILLS, MAX_SKILL_LVL, ENEMY_TYPES, BOSS_TYPES, spawnTable, IMAGES, randName, randSectName, randGongfaName,
+  SKILLS, SKILL_IDS, MAX_SKILLS, MAX_SKILL_LVL, ENEMY_TYPES, BOSS_TYPES, spawnTable, IMAGES, PX_FACE, randName, randSectName, randGongfaName,
 } from './data.js';
 import { Hud } from './ui.js';
 import { sfx, initAudio, toggleMute, toggleBgm, setIntensity } from './sfx.js';
@@ -43,7 +43,7 @@ function glyph(scene, key, ch, size, fill, stroke, font, textColor = '#fff') {
 
 // 圓框 + 圖片；圖片沒載到時退回文字
 function portrait(scene, key, img, size, fill, stroke, ch, ring = 2) {
-  if (scene.textures.exists('img_px_' + img)) img = 'px_' + img;
+  if (scene.textures.exists('img_px_' + img) && fill) return pixelSprite(scene, key, img, size, stroke);
   if (!scene.textures.exists('img_' + img)) return glyph(scene, key, ch, size, fill, stroke, Math.round(size * 0.55), stroke);
   canvasTex(scene, key, size, size, c => {
     if (fill) {
@@ -55,6 +55,20 @@ function portrait(scene, key, img, size, fill, stroke, ch, ring = 2) {
     c.imageSmoothingEnabled = !img.startsWith('px_');
     const pad = fill ? size * 0.12 : 0;
     c.drawImage(src, pad, pad, size - pad * 2, size - pad * 2);
+  });
+}
+
+// 像素圖：不放圓框，腳下畫屬性色光圈，圖片放大填滿
+function pixelSprite(scene, key, img, size, color) {
+  const S = Math.round(size * 1.3);
+  canvasTex(scene, key, S, S, c => {
+    c.save();
+    c.globalAlpha = 0.35; c.fillStyle = color;
+    c.beginPath(); c.ellipse(S / 2, S * 0.88, S * 0.36, S * 0.09, 0, 0, Math.PI * 2); c.fill();
+    c.globalAlpha = 0.9; c.lineWidth = 2; c.strokeStyle = color; c.stroke();
+    c.restore();
+    c.imageSmoothingEnabled = false;
+    c.drawImage(scene.textures.get('img_px_' + img).getSourceImage(), 0, 0, S, S * 0.93);
   });
 }
 
@@ -302,6 +316,7 @@ class Main extends Phaser.Scene {
     let mx = (k.D.isDown || k.RIGHT.isDown) - (k.A.isDown || k.LEFT.isDown);
     let my = (k.S.isDown || k.DOWN.isDown) - (k.W.isDown || k.UP.isDown);
     if (mx || my) {
+      if (mx) P.sprite.setFlipX(mx < 0);
       const l = Math.hypot(mx, my);
       const sp = P.meditating ? 0 : P.speed;
       P.x = clamp(P.x + mx / l * sp * dt, 15, WORLD - 15);
@@ -396,7 +411,7 @@ class Main extends Phaser.Scene {
     const x = clamp(at ? at.x : P.x + Math.cos(a) * R, 20, WORLD - 20), y = clamp(at ? at.y : P.y + Math.sin(a) * R, 20, WORLD - 20);
     const hp = T.hp * (1 + gm * 0.25 + gm * gm * 0.02);
     const e = {
-      type, elem, x, y, r: T.r, hp, maxHp: hp, boss: !!T.boss, charger: !!T.charger, face: T.face || 0,
+      type, elem, x, y, r: T.r, hp, maxHp: hp, boss: !!T.boss, charger: !!T.charger, face: this.textures.exists('img_px_' + T.img) ? PX_FACE[T.img] || 0 : T.face || 0,
       speed: T.speed * rand(0.9, 1.1) * (1 + gm * 0.01), dmg: T.dmg * (1 + gm * 0.08),
       realm: Math.min(4, Math.floor(gm / 6)) + (T.boss ? 1 : 0),
       touchCd: 0, slowT: 0, slowF: 1, kx: 0, ky: 0, flash: 0, target: null, retarget: rand(0, 0.5), shootT: rand(1, 3),
@@ -1031,6 +1046,7 @@ class Main extends Phaser.Scene {
       }
       pb.x = clamp(pb.x, 5, WORLD - 5); pb.y = clamp(pb.y, 5, WORLD - 5);
       pb.sprite.setPosition(pb.x, pb.y);
+      if (Math.abs(mx) > 1) pb.sprite.setFlipX(mx > 0);
       pb.label.setPosition(pb.x, pb.y - 24);
       pb.sprite.setAlpha(pb.state === 'fleeing' ? 0.6 : 1);
 

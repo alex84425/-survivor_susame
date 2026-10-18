@@ -70,6 +70,12 @@ export function spawnTable(gm) {
   return t;
 }
 
+// 像素圖（tools/cutout.py 產生）實際的朝向：1 朝右、-1 朝左、0 正面
+export const PX_FACE = {
+  wolf: 1, fox: -1, bear: 0, boar: 1, spider: 1, snake: 1, bat: 0, goblin: 0, scorpion: 1, crocodile: 1, ogre: 0,
+  dragon: 1, tiger: -1, lion: 1, trex: 1, gorilla: 0, mage: 1, fencer: -1,
+};
+
 // 需要載入的圖片
 export const IMAGES = ['bat', 'goblin', 'wolf', 'fox', 'spider', 'snake', 'scorpion', 'boar', 'crocodile', 'bear', 'ogre',
   'dragon', 'tiger', 'lion', 'trex', 'gorilla', 'mage', 'fencer', 'shrine', 'gem', 'scroll', 'bone', 'pill'];

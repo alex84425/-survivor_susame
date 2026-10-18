@@ -66,36 +66,51 @@ def square(im):
     return sq.resize((SIZE, SIZE), Image.LANCZOS if s < SIZE * 2 else Image.NEAREST)
 
 
+def grid_layout(n):
+    """每列最多 3 隻：6 → 3+3、5 → 3+2、4 → 2+2、≤3 → 單列"""
+    if n <= 3:
+        return [n]
+    if n == 4:
+        return [2, 2]
+    return [3] * (n // 3) + ([n % 3] if n % 3 else [])
+
+
 def split_sheet(im, n):
-    """依不透明區塊切出 n 隻，排序：由上到下分列、列內由左到右"""
-    alpha = np.asarray(im)[..., 3] > 0
-    # 先膨脹把同一隻的碎片（例如分開的翅膀）黏在一起
-    grown = ndimage.binary_dilation(alpha, iterations=max(4, im.size[0] // 120))
-    lab, cnt = ndimage.label(grown)
-    if cnt < n:
-        raise RuntimeError(f"只找到 {cnt} 個區塊，少於 {n} 隻；請讓妖獸之間留更多空白")
-    sizes = ndimage.sum(alpha, lab, range(1, cnt + 1))
-    keep = sorted(range(1, cnt + 1), key=lambda i: -sizes[i - 1])[:n]
-    boxes = []
-    for i in keep:
-        ys, xs = np.where(lab == i)
-        boxes.append((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1, i))
-    # 分列：中心點 y 相近的歸同一列
-    boxes.sort(key=lambda b: (b[1] + b[3]) / 2)
-    rows, cur = [], [boxes[0]]
-    for b in boxes[1:]:
-        prev = cur[-1]
-        if (b[1] + b[3]) / 2 - (prev[1] + prev[3]) / 2 < (prev[3] - prev[1]) * 0.5:
-            cur.append(b)
-        else:
-            rows.append(cur); cur = [b]
-    rows.append(cur)
-    ordered = [b for r in rows for b in sorted(r, key=lambda b: b[0])]
+    """依網格位置切出 n 隻（由左到右、由上到下）。
+    每個不透明區塊整塊歸給中心最近的格子；若兩隻黏在一起，就逐像素分給最近的格子。"""
     arr = np.asarray(im).copy()
+    alpha = arr[..., 3] > 0
+    h, w = alpha.shape
+    rows = grid_layout(n)
+    centers = []
+    for r, k in enumerate(rows):
+        for j in range(k):
+            centers.append(((j + 0.5) * w / k, (r + 0.5) * h / len(rows)))
+    centers = np.array(centers)
+    ys, xs = np.mgrid[0:h, 0:w]
+    # 每個像素最近的格子（列距離加權，避免上下列互搶）
+    dist = (xs[None] - centers[:, 0, None, None]) ** 2 + (2 * (ys[None] - centers[:, 1, None, None])) ** 2
+    nearest = dist.argmin(axis=0)
+    owner = np.full((h, w), -1)
+    lab, cnt = ndimage.label(alpha)
+    for i in range(1, cnt + 1):
+        m = lab == i
+        if m.sum() < 30:
+            continue  # 雜點
+        votes = np.bincount(nearest[m], minlength=n)
+        if votes.max() >= 0.9 * m.sum():
+            owner[m] = votes.argmax()
+        else:
+            owner[m] = nearest[m]
     parts = []
-    for x0, y0, x1, y1, i in ordered:
+    for c in range(n):
+        m = owner == c
+        if not m.any():
+            raise RuntimeError(f"第 {c + 1} 格是空的，排列可能和檔名順序不符")
+        yy, xx = np.where(m)
+        y0, y1, x0, x1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
         piece = arr[y0:y1, x0:x1].copy()
-        piece[lab[y0:y1, x0:x1] != i, 3] = 0
+        piece[~m[y0:y1, x0:x1], 3] = 0
         parts.append(Image.fromarray(piece, "RGBA"))
     return parts
 
