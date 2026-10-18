@@ -3,38 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>修仙倖存者</title>
-<link rel="stylesheet" href="style.css">
+<title>修仙・單挑</title>
+<link rel="stylesheet" href="style3.css">
 </head>
 <body>
-<script>if (/sandbox=1/.test(location.search)) document.body.classList.add('sandbox');</script>
 <div id="game"></div>
+<div id="slowfx"></div>
 
-<div id="hud">
-  <div id="slowfx"></div>
-  <div id="top">
-    <div class="pill big" id="h-life">壽元 30:00</div>
-    <div class="pill" id="h-realm">練氣 一層</div>
-    <div class="expbar"><div id="h-exp"></div><span id="h-exptxt"></span></div>
-    <div class="pill" id="h-stones">靈石 0</div>
-    <div class="pill" id="h-phase">妖潮</div>
-    <div class="pill" id="h-kills">斬妖 0</div>
+<div id="v3hud" class="hidden">
+  <div id="bars">
+    <div id="who"></div>
+    <div class="bar hp"><div id="hpb"></div><span id="hpt"></span></div>
+    <div class="bar st"><div id="stb"></div></div>
+    <div class="bar mp"><div id="mpb"></div><span id="mpt"></span></div>
   </div>
-  <div id="left" class="panel"></div>
-  <canvas id="minimap" width="200" height="200"></canvas>
-  <div id="right" class="panel"></div>
-  <div id="skillbar"></div>
-  <div id="prompt"></div>
-  <div id="state"></div>
+  <div id="bossbar" class="hidden">
+    <div id="bossname"></div>
+    <div class="bhp"><div id="bosshp"></div></div>
+    <div class="bpo"><div id="bosspoise"></div></div>
+  </div>
   <div id="banner"></div>
-  <div id="choice" class="box hidden"></div>
-  <div id="shop" class="box hidden"></div>
+  <div id="prompt"></div>
   <div id="toasts"></div>
-  <div id="help">WASD 移動 ｜ 滑鼠瞄準 ｜ 左鍵・右鍵・Q・E 施放神通 ｜ 空白 閃避 ｜ Shift 神識時緩 ｜ F 篝火・互動 ｜ 1～5 抉擇 ｜ M 靜音 ｜ B 音樂</div>
-  <div id="over" class="hidden"></div>
+  <div id="slots"></div>
+  <div id="links"><a href="legacy.html">舊版</a>・<a href="wiki.html">百科</a></div>
 </div>
 
+<div id="select" class="hidden"></div>
+<div id="over" class="hidden"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-<script type="module" src="src/main.js"></script>
+<script type="module" src="src/v3/game.js"></script>
 </body>
 </html>

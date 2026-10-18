@@ -1,0 +1,59 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden; color: #e8e4d8;
+  font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif; }
+#game { position: fixed; inset: 0; }
+.hidden { display: none !important; }
+.small { font-size: 12px; color: #9c968a; }
+
+#slowfx { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .1s;
+  background: radial-gradient(ellipse at center, rgba(140,110,255,0) 35%, rgba(140,110,255,.35) 100%); }
+#slowfx.on { opacity: 1; }
+
+#v3hud { position: fixed; inset: 0; pointer-events: none; }
+#bars { position: absolute; left: 16px; top: 14px; width: 320px; }
+#who { display: flex; flex-direction: column; margin-bottom: 6px; font-size: 16px; }
+#who .small { max-width: 320px; }
+.bar { position: relative; height: 16px; background: rgba(0,0,0,.6); border: 1px solid #3a3528; border-radius: 4px; overflow: hidden; margin-bottom: 4px; }
+.bar > div { height: 100%; transition: width .08s; }
+.bar > span { position: absolute; inset: 0; font-size: 11px; line-height: 15px; padding-left: 6px; text-shadow: 0 0 3px #000; }
+.bar.hp { height: 20px; } .bar.hp > div { background: linear-gradient(90deg, #8a1f1f, #d84040); } .bar.hp > span { line-height: 19px; font-size: 12px; }
+.bar.st { height: 8px; width: 70%; } .bar.st > div { background: #5cc96b; }
+.bar.mp { height: 12px; width: 85%; } .bar.mp > div { background: #3a8ad8; } .bar.mp > span { line-height: 11px; font-size: 10px; }
+
+#bossbar { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: min(560px, 60vw); text-align: center; }
+#bossname { font-size: 18px; color: #ff9090; letter-spacing: 4px; text-shadow: 0 0 6px #000; margin-bottom: 4px; }
+.bhp { height: 12px; background: rgba(0,0,0,.6); border: 1px solid #5a2020; border-radius: 3px; overflow: hidden; }
+.bhp > div { height: 100%; background: linear-gradient(90deg, #8a1010, #e03030); }
+.bpo { height: 4px; margin-top: 2px; background: rgba(0,0,0,.6); border-radius: 2px; overflow: hidden; }
+.bpo > div { height: 100%; background: #ffb030; }
+
+#banner { position: absolute; top: 24%; left: 0; right: 0; text-align: center; font-size: 40px; font-weight: bold; letter-spacing: 10px;
+  color: #ffd98a; text-shadow: 0 0 12px #000, 0 0 24px #a60; opacity: 0; }
+#banner.show { animation: banner 2.4s ease-out forwards; }
+@keyframes banner { 0% { opacity: 0; transform: scale(1.5); } 12% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; } }
+
+#prompt { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); font-size: 16px; text-shadow: 0 0 4px #000; }
+#toasts { position: absolute; left: 16px; top: 128px; width: 320px; display: flex; flex-direction: column; gap: 4px; }
+.toast { background: rgba(10,12,18,.8); border-left: 3px solid #ffd98a; padding: 4px 10px; border-radius: 3px; font-size: 13px; animation: fade 7s forwards; }
+@keyframes fade { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+
+#slots { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+.slot { position: relative; width: 104px; height: 60px; background: rgba(10,12,18,.88); border: 1px solid #3a3528; border-radius: 8px; padding: 5px 8px; overflow: hidden; }
+.slot .key { color: #ffd98a; font-weight: bold; font-size: 11px; }
+.slot .nm { font-size: 14px; white-space: nowrap; }
+.slot .lv { color: #9c968a; font-size: 11px; }
+.slot .cd { position: absolute; left: 0; top: 0; height: 100%; width: 0; background: rgba(0,0,0,.65); }
+#links { position: absolute; left: 16px; bottom: 10px; font-size: 12px; pointer-events: auto; }
+#links a { color: #9c968a; }
+
+#select, #over { position: fixed; inset: 0; background: rgba(6,7,10,.94); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 20px; overflow-y: auto; }
+#select h1, #over h1 { margin: 0; font-size: 34px; color: #ffd98a; letter-spacing: 8px; }
+#over { cursor: pointer; }
+.cards { display: grid; grid-template-columns: repeat(5, minmax(170px, 230px)); gap: 12px; }
+.card { position: relative; background: #12151c; border: 2px solid; border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: transform .1s; font-size: 13px; line-height: 1.5; }
+.card:hover { transform: translateY(-4px); background: #181c25; }
+.card h2 { margin: 0 0 2px; font-size: 20px; }
+.card .role { color: #ffd98a; margin-bottom: 6px; }
+.card p { margin: 4px 0; }
+.card .k { position: absolute; right: 10px; top: 8px; color: #6b6450; font-weight: bold; }
+@media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, minmax(160px, 1fr)); } }
