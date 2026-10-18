@@ -64,7 +64,7 @@ export const CLASSES = {
 // wind：前搖秒數範圍（隨機，避免背節奏）；band：近 near / 中 mid / 遠 far
 export const ENEMIES = {
   wolf: {
-    name: '妖狼', img: 'wolf', elem: '金', r: 17, hp: 260, poise: 60, speed: 165, pref: 72, sight: 430, size: 62, fast: true,
+    name: '妖狼', img: 'wolf', elem: '金', r: 17, exp: 18, hp: 260, poise: 60, speed: 165, pref: 72, sight: 430, size: 62, fast: true,
     moves: {
       bite2: { band: 'near', w: 3, rec: 0.85, steps: [
         { k: 'arc', range: 72, half: 0.75, wind: [0.42, 0.7], dmg: 16 },
@@ -74,7 +74,7 @@ export const ENEMIES = {
     },
   },
   bear: {
-    name: '妖熊', img: 'bear', elem: '土', r: 26, hp: 720, poise: 150, speed: 105, pref: 82, sight: 400, size: 86,
+    name: '妖熊', img: 'bear', elem: '土', r: 26, exp: 45, hp: 720, poise: 150, speed: 105, pref: 82, sight: 400, size: 86,
     moves: {
       swipe3: { band: 'near', w: 3, rec: 1.2, steps: [
         { k: 'arc', range: 92, half: 0.95, wind: [0.55, 0.9], dmg: 24 },
@@ -86,7 +86,7 @@ export const ENEMIES = {
     },
   },
   spider: {
-    name: '毒蛛', img: 'spider', elem: '木', r: 18, hp: 290, poise: 70, speed: 120, pref: 290, sight: 460, size: 64, ranged: true,
+    name: '毒蛛', img: 'spider', elem: '木', r: 18, exp: 25, hp: 290, poise: 70, speed: 120, pref: 290, sight: 460, size: 64, ranged: true,
     moves: {
       hopbite: { band: 'near', w: 3, rec: 0.4, steps: [
         { k: 'arc', range: 70, half: 0.8, wind: [0.35, 0.55], dmg: 16 },
@@ -97,7 +97,7 @@ export const ENEMIES = {
     },
   },
   tiger: {
-    name: '妖王・翼虎', img: 'tiger', elem: '火', r: 36, hp: 3400, poise: 320, speed: 175, pref: 95, sight: 520, size: 120, boss: true,
+    name: '夜王・翼虎', img: 'tiger', elem: '火', r: 36, exp: 500, hp: 3400, poise: 320, speed: 175, pref: 95, sight: 520, size: 120, boss: true,
     moves: {
       claws: { band: 'near', w: 3, rec: 0.9, steps: [
         { k: 'arc', range: 120, half: 0.9, wind: [0.45, 0.75], dmg: 30 },
@@ -116,5 +116,111 @@ export const ENEMIES = {
       summon: { band: 'far', w: 1, rec: 1.0, cd: 12, steps: [{ k: 'summon', type: 'wolf', n: 2, wind: [0.8, 1.0] }] },
     },
   },
+  boar: {
+    name: '豬妖', img: 'boar', elem: '土', r: 22, hp: 480, poise: 110, speed: 120, pref: 80, sight: 400, size: 76, exp: 30,
+    moves: {
+      gore: { band: 'near', w: 3, rec: 0.9, steps: [{ k: 'arc', range: 85, half: 0.8, wind: [0.5, 0.8], dmg: 24 }] },
+      rush: { band: 'mid', w: 3, rec: 1.2, steps: [{ k: 'line', len: 420, width: 56, wind: [0.7, 1.0], dmg: 30, dash: true }] },
+      stomp: { band: 'far', w: 1, rec: 1.0, cd: 4, steps: [{ k: 'line', len: 420, width: 56, wind: [0.9, 1.1], dmg: 30, dash: true }] },
+    },
+  },
+  snake: {
+    name: '火蛇', img: 'snake', elem: '火', r: 18, hp: 300, poise: 70, speed: 115, pref: 260, sight: 450, size: 66, ranged: true, exp: 25,
+    moves: {
+      lash: { band: 'near', w: 3, rec: 0.7, steps: [{ k: 'arc', range: 80, half: 1.0, wind: [0.4, 0.6], dmg: 18 }, { k: 'hop', dist: 180, wind: [0.05, 0.1] }] },
+      spit: { band: 'mid', w: 3, rec: 0.7, steps: [{ k: 'proj', n: 1, spread: 0, speed: 340, dmg: 20, wind: [0.45, 0.7], tex: 'fire_火', size: 10 }, { k: 'proj', n: 1, spread: 0, speed: 340, dmg: 20, wind: [0.25, 0.4], tex: 'fire_火', size: 10 }] },
+      firepool: { band: 'far', w: 2, rec: 0.8, cd: 5, steps: [{ k: 'pool', R: 90, wind: [0.8, 1.0], dmg: 10, life: 4, track: 0.6 }] },
+    },
+  },
+  ogre: {
+    name: '鬼將', img: 'ogre', elem: '金', r: 30, hp: 1500, poise: 260, speed: 95, pref: 95, sight: 460, size: 104, exp: 120, elite: true,
+    moves: {
+      club3: { band: 'near', w: 3, rec: 1.1, steps: [
+        { k: 'arc', range: 120, half: 1.1, wind: [0.6, 0.95], dmg: 34 },
+        { k: 'arc', range: 120, half: 1.1, wind: [0.45, 0.8], dmg: 34 },
+        { k: 'circle', at: 'self', R: 170, wind: [0.75, 1.1], dmg: 46 }] },
+      leap: { band: 'mid', w: 2, rec: 1.2, steps: [{ k: 'circle', at: 'target', R: 120, wind: [0.9, 1.1], dmg: 44, track: 0.7 }] },
+      throwc: { band: 'far', w: 2, rec: 1.0, cd: 4, steps: [{ k: 'circle', at: 'target', R: 80, wind: [0.9, 1.1], dmg: 32, track: 0.5, rock: true }] },
+    },
+  },
+  // 第二夜的夜王
+  dragon: {
+    name: '夜王・蛟龍', img: 'dragon', elem: '水', r: 40, hp: 5200, poise: 380, speed: 165, pref: 120, sight: 600, size: 130, boss: true, exp: 600,
+    moves: {
+      bite: { band: 'near', w: 3, rec: 0.8, steps: [
+        { k: 'arc', range: 130, half: 0.8, wind: [0.5, 0.8], dmg: 38 },
+        { k: 'circle', at: 'self', R: 170, wind: [0.5, 0.8], dmg: 40 }] },
+      surge: { band: 'mid', w: 3, rec: 0.9, steps: [{ k: 'line', len: 460, width: 90, wind: [0.6, 0.9], dmg: 44, dash: true }] },
+      storm: { band: 'far', w: 2, rec: 1.0, cd: 4, steps: [
+        { k: 'circle', at: 'target', R: 90, wind: [0.7, 0.9], dmg: 34, track: 0.8 },
+        { k: 'circle', at: 'target', R: 90, wind: [0.4, 0.6], dmg: 34, track: 0.8 },
+        { k: 'circle', at: 'target', R: 90, wind: [0.4, 0.6], dmg: 34, track: 0.8 }] },
+      tide: { band: 'far', w: 2, rec: 1.0, cd: 6, steps: [{ k: 'ring', R: 600, speed: 380, wind: [0.8, 1.0], dmg: 32 }] },
+    },
+    phase2: {
+      surge3: { band: 'mid', w: 4, rec: 1.0, steps: [
+        { k: 'line', len: 420, width: 90, wind: [0.5, 0.7], dmg: 44, dash: true },
+        { k: 'line', len: 420, width: 90, wind: [0.3, 0.5], dmg: 44, dash: true },
+        { k: 'ring', R: 520, speed: 420, wind: [0.4, 0.6], dmg: 30 }] },
+      summon: { band: 'far', w: 1, rec: 1.0, cd: 14, steps: [{ k: 'summon', type: 'snake', n: 2, wind: [0.8, 1.0] }] },
+    },
+  },
+  // 最終王
+  emperor: {
+    name: '妖皇・暴龍', img: 'trex', elem: '土', r: 52, hp: 9000, poise: 520, speed: 150, pref: 130, sight: 900, size: 170, boss: true, final: true, exp: 0,
+    moves: {
+      maul: { band: 'near', w: 3, rec: 0.8, steps: [
+        { k: 'arc', range: 160, half: 1.0, wind: [0.5, 0.8], dmg: 46 },
+        { k: 'arc', range: 160, half: 1.0, wind: [0.3, 0.55], dmg: 46 },
+        { k: 'circle', at: 'self', R: 220, wind: [0.6, 0.9], dmg: 56 }] },
+      charge: { band: 'mid', w: 3, rec: 1.0, steps: [{ k: 'line', len: 520, width: 110, wind: [0.6, 0.9], dmg: 54, dash: true }] },
+      quake: { band: 'far', w: 2, rec: 1.0, cd: 5, steps: [{ k: 'ring', R: 700, speed: 400, wind: [0.8, 1.0], dmg: 36 }, { k: 'ring', R: 700, speed: 400, wind: [0.35, 0.5], dmg: 36 }] },
+      meteors: { band: 'far', w: 2, rec: 1.0, cd: 4, steps: [
+        { k: 'circle', at: 'target', R: 110, wind: [0.7, 0.9], dmg: 40, track: 0.8, rock: true },
+        { k: 'circle', at: 'target', R: 110, wind: [0.35, 0.5], dmg: 40, track: 0.8, rock: true },
+        { k: 'circle', at: 'target', R: 110, wind: [0.35, 0.5], dmg: 40, track: 0.8, rock: true }] },
+    },
+    phase2: {
+      charge3: { band: 'mid', w: 4, rec: 1.1, steps: [
+        { k: 'line', len: 520, width: 110, wind: [0.5, 0.7], dmg: 54, dash: true },
+        { k: 'line', len: 520, width: 110, wind: [0.3, 0.5], dmg: 54, dash: true },
+        { k: 'circle', at: 'self', R: 240, wind: [0.5, 0.8], dmg: 60 }] },
+      summon: { band: 'far', w: 1, rec: 1.0, cd: 15, steps: [{ k: 'summon', type: 'ogre', n: 1, wind: [0.9, 1.1] }] },
+    },
+  },
   dummy: { name: '木樁', img: null, elem: '土', r: 20, hp: 1e9, poise: 200, speed: 0, pref: 0, sight: 0, size: 50, dummy: true, moves: {} },
+};
+
+// ---------- 心法（祝福）：篝火首次點亮、擊敗夜王時三選一 ----------
+// 相生心法：同時擁有兩個相生屬性的心法時才會出現
+export const BOONS = {
+  jin_edge:    { elem: '金', name: '鋒銳', desc: '普攻傷害 +20%' },
+  jin_hunt:    { elem: '金', name: '追魂', desc: '對被標記或殘血的敵人再 +20%' },
+  jin_heart:   { elem: '金', name: '劍心', desc: '完美閃避後，接下來 3 次普攻都暴擊' },
+  mu_spring:   { elem: '木', name: '回春', desc: '3 秒沒受傷時，每秒回復 1.5% 肉身' },
+  mu_bind:     { elem: '木', name: '藤縛', desc: '命中有 12% 機率定身敵人 1 秒' },
+  mu_wind:     { elem: '木', name: '疾風', desc: '遁速 +12%，閃避體力消耗 -30%' },
+  shui_frost:  { elem: '水', name: '寒冰', desc: '命中使敵人減速 30%（1.5 秒）' },
+  shui_tide:   { elem: '水', name: '潮汐', desc: '真元上限 +40，戰技冷卻 -25%' },
+  shui_mirror: { elem: '水', name: '鏡水', desc: '完美閃避或彈反時回復 8% 肉身' },
+  huo_karma:   { elem: '火', name: '業火', desc: '所有命中附加 1 層灼燒' },
+  huo_burst:   { elem: '火', name: '爆炎', desc: '擊殺時爆炸，周圍 100 範圍造成 40 傷害' },
+  huo_heart:   { elem: '火', name: '灼心', desc: '對灼燒中的敵人傷害 +25%' },
+  tu_rock:     { elem: '土', name: '磐石', desc: '肉身上限 +25%' },
+  tu_thick:    { elem: '土', name: '厚土', desc: '受到傷害 -15%' },
+  tu_quake:    { elem: '土', name: '震岳', desc: '重擊命中時震地：周圍 90 範圍 25 傷害' },
+  // 相生
+  duo_frostblade: { duo: ['金', '水'], name: '霜刃（金生水）', desc: '暴擊會凍住敵人 1 秒' },
+  duo_rainwood:   { duo: ['水', '木'], name: '雨林（水生木）', desc: '每次閃避回復 3% 肉身' },
+  duo_wildfire:   { duo: ['木', '火'], name: '燎原（木生火）', desc: '灼燒中的敵人死亡時，灼燒傳染給周圍 160 範圍的敵人' },
+  duo_lava:       { duo: ['火', '土'], name: '熔岩（火生土）', desc: '重擊在地上留下 2 秒熔岩（持續傷害、灼燒）' },
+  duo_vajra:      { duo: ['土', '金'], name: '金剛劍（土生金）', desc: '處決後 6 秒內傷害 +40%' },
+};
+
+// 升級成長（在篝火用靈石升級）
+export const LEVEL = {
+  cost: lv => Math.round(60 + 45 * (lv - 1) + 6 * (lv - 1) ** 2),
+  hp: 0.07,   // 每級肉身 +7%
+  dmg: 0.06,  // 每級傷害 +6%
+  max: 20,
 };

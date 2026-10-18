@@ -1,3 +1,6 @@
 tools/raw/
 assets/raw/*
 !assets/raw/.gitkeep
+# 自用背景音樂（可能有版權，不上傳）
+assets/audio/*
+!assets/audio/README.md

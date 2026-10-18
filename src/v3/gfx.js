@@ -138,6 +138,21 @@ export function makeTextures(scene) {
     g.addColorStop(0, '#fff6c0'); g.addColorStop(0.4, '#ffb030'); g.addColorStop(1, 'rgba(255,80,0,0)');
     c.fillStyle = g; c.beginPath(); c.moveTo(26, 4); c.quadraticCurveTo(44, 28, 26, 42); c.quadraticCurveTo(8, 28, 26, 4); c.fill();
   });
+  canvasTex(scene, 'bonfire3_off', 52, 52, c => {
+    c.strokeStyle = '#4a3a2a'; c.lineWidth = 5;
+    c.beginPath(); c.moveTo(8, 46); c.lineTo(44, 34); c.moveTo(44, 46); c.lineTo(8, 34); c.stroke();
+    c.fillStyle = '#555'; c.beginPath(); c.arc(26, 38, 6, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(200,200,200,.5)'; c.beginPath(); c.arc(26, 26, 4, 0, Math.PI * 2); c.fill();
+  });
+  for (const open of [false, true]) {
+    canvasTex(scene, open ? 'chest3_open' : 'chest3', 44, 38, c => {
+      c.fillStyle = '#6a3e14'; c.fillRect(3, 14, 38, 22);
+      c.fillStyle = open ? '#2a1a0a' : '#9a5e22'; c.fillRect(3, open ? 3 : 6, 38, 11);
+      c.strokeStyle = '#ffd24a'; c.lineWidth = 2; c.strokeRect(3, 14, 38, 22);
+      c.fillStyle = '#ffd24a'; c.fillRect(19, 16, 6, 8);
+      if (open) { c.fillStyle = 'rgba(255,220,120,.8)'; c.fillRect(8, 10, 28, 4); }
+    });
+  }
   canvasTex(scene, 'dummy3', 40, 50, c => {
     c.fillStyle = '#7a5530'; c.fillRect(17, 10, 6, 38);
     c.fillRect(6, 18, 28, 6);

@@ -1,11 +1,12 @@
 // 修仙 v3：黑帝斯 × 黑夜君臨。第一階段＝單挑手感測試場
 import { sfx, initAudio, toggleMute, toggleBgm, setIntensity } from '../sfx.js';
 import { ELEMS, ELEM_CSS, ELEM_HEX, elemMult, PX_FACE } from '../data.js';
-import { CLASSES, ENEMIES } from './kits.js';
+import { CLASSES, ENEMIES, BOONS, LEVEL } from './kits.js';
 import { preloadImages, makeTextures, unitTex } from './gfx.js';
 import { preloadVfx, Vfx } from './vfx.js';
 
-const W = 4000;
+const W = 9000;
+const params = new URLSearchParams(location.search);
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -33,7 +34,7 @@ class Arena extends Phaser.Scene {
     this.vfx = new Vfx(this);
     this.tele = this.add.graphics().setDepth(1);
     this.fx = this.add.graphics().setDepth(6);
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,SHIFT,Q,E,R,F,ENTER,M,B');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,SHIFT,Q,E,R,F,ENTER,M,B,ONE,TWO,THREE');
     this.input.keyboard.on('keydown', initAudio);
     this.input.on('pointerdown', initAudio);
     this.input.mouse.disableContextMenu();
@@ -53,13 +54,14 @@ class Arena extends Phaser.Scene {
     this.cameras.main.startFollow(this.P.sprite, true, 0.12, 0.12);
     // 白天草原：玩家光源很淡（第二階段夜晚再加強）
     this.pLight = this.vfx.glow(this.P, 520, 0xfff0c0, 0.05).setDepth(-8);
-    this.bonfire = { x: 2000, y: 2000 };
-    this.add.image(2000, 2000, 'bonfire3').setDepth(1);
-    this.vfx.glow(this.bonfire, 420, 0xff9a3c, 0.35).setDepth(-8);
-    this.spawnAll();
+    this.choice = null; this.choiceQ = [];
+    this.clock = 0; this.clockMul = params.get('fast') ? +params.get('fast') : 1; this.night = -1; this.zoneTick = 0; this.nightInfo = '';
+    this.nightShade = this.add.rectangle(0, 0, 4000, 4000, 0x0a1030, 0).setOrigin(0).setScrollFactor(0).setDepth(15);
+    this.genWorld();
     hud.start(this);
-    hud.toast(`主修：${this.P.elem}・${this.P.cls.name}。左鍵普攻、右鍵戰技、Q 大招、空白閃避、R 丹藥、F 處決或篝火`);
-    hud.toast('測試場：北方狼群、東方妖熊、南方毒蛛巢、西方妖王・翼虎；篝火 F 可回滿並重置妖獸', '#999');
+    hud.toast(`主修：${this.P.elem}・${this.P.cls.name}。點亮篝火得心法、清妖巢開寶箱、殺怪得靈石回篝火升級。兩夜之後斬殺妖皇！`);
+    hud.toast('左鍵普攻・右鍵戰技・E 撿到的戰技・Q 大招・空白閃避・R 丹藥・F 篝火/寶箱/處決', '#999');
+    startBgmFile();
   }
 
   // ---------- 草原 ----------
@@ -68,12 +70,10 @@ class Arena extends Phaser.Scene {
     // 素材草地偏亮，稍微壓暗讓角色與預警更突出
     this.add.tileSprite(0, 0, W, W, tex).setOrigin(0).setDepth(-10).setTint(tex === 'env_grass' ? 0xc8d4b8 : 0xffffff);
     // 深淺草地斑塊，打散平鋪的重複感
-    for (let i = 0; i < 120; i++) this.add.ellipse(rand(0, W), rand(0, W), rand(200, 520), rand(140, 360), Math.random() < 0.5 ? 0x2e5a22 : 0x7aa850, rand(0.12, 0.22)).setDepth(-9).setAngle(rand(0, 180));
-    // 泥土小路
-    for (let i = 0; i < 40; i++) this.add.ellipse(2000 + rand(-60, 60) + Math.cos(i / 6) * 40, 600 + i * 70, rand(70, 110), rand(40, 60), 0x8a7a50, 0.35).setDepth(-9);
+    for (let i = 0; i < 520; i++) this.add.ellipse(rand(0, W), rand(0, W), rand(200, 520), rand(140, 360), Math.random() < 0.5 ? 0x2e5a22 : 0x7aa850, rand(0.12, 0.22)).setDepth(-9).setAngle(rand(0, 180));
     // 地貌物件：有 Gemini 素材（160px）就用，沒有就用程式畫的備案；sc 是素材時的縮放範圍
     const prop = (k, fallback, sc, fsc) => this.textures.exists('env_' + k) ? ['env_' + k, sc] : [fallback, fsc];
-    const keep = (x, y) => d2(x, y, 2000, 2050) > 260 * 260;
+    const keep = (x, y) => d2(x, y, W / 2, W / 2) > 300 * 300;
     const scatter = (n, k, fallback, sc, fsc, depth, avoid) => {
       const [tex, range] = prop(k, fallback, sc, fsc);
       for (let i = 0; i < n; i++) {
@@ -82,15 +82,15 @@ class Arena extends Phaser.Scene {
         this.add.image(x, y, tex).setDepth(depth).setScale(rand(range[0], range[1])).setFlipX(Math.random() < 0.5);
       }
     };
-    scatter(900, 'tuft', 'tuft', [0.16, 0.26], [0.8, 1.2], -8, false);
-    scatter(380, 'flower', 'flower', [0.16, 0.24], [0.8, 1.3], -8, false);
-    scatter(130, 'stone', 'stone2', [0.25, 0.45], [0.8, 1.6], -7, true);
-    scatter(140, 'bush', 'bush2', [0.35, 0.55], [0.9, 1.4], -7, true);
-    scatter(40, 'stump', 'bush2', [0.3, 0.4], [0.6, 0.8], -7, true);
+    scatter(3600, 'tuft', 'tuft', [0.16, 0.26], [0.8, 1.2], -8, false);
+    scatter(1500, 'flower', 'flower', [0.16, 0.24], [0.8, 1.3], -8, false);
+    scatter(520, 'stone', 'stone2', [0.25, 0.45], [0.8, 1.6], -7, true);
+    scatter(560, 'bush', 'bush2', [0.35, 0.55], [0.9, 1.4], -7, true);
+    scatter(160, 'stump', 'bush2', [0.3, 0.4], [0.6, 0.8], -7, true);
     // 樹叢：在角色上層，走到樹後面會被遮住
     const [treeTex, treeSc] = prop('tree', 'tree2', [0.9, 1.35], [1, 1.5]);
     this.trees = [];
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < 110; i++) {
       const cx = rand(200, W - 200), cy = rand(200, W - 200);
       if (!keep(cx, cy)) continue;
       for (let j = 0; j < 7; j++) {
@@ -104,7 +104,8 @@ class Arena extends Phaser.Scene {
   initPlayer() {
     const C = CLASSES[this.clsKey];
     this.P = {
-      elem: this.clsKey, cls: C, x: 2000, y: 2120, r: 14,
+      elem: this.clsKey, cls: C, x: W / 2, y: W / 2 + 40, r: 14,
+      level: 1, runes: 0, dmgMul: 1, boons: new Set(), eSkill: null, eLvl: 1, eCd: 0, lastHit: -9, critCount: 0, vajraT: 0,
       hp: C.hp, maxHp: C.hp, st: 100, maxSt: 100, stDelay: 0, mp: 60, maxMp: 100, ult: 0,
       flask: 3, flaskMax: 3, speed: C.speed,
       dodgeCd: 0, dashT: 0, dvx: 0, dvy: 0, inv: 0, dodgeAt: -9, stunT: 0, rootT: 0,
@@ -113,21 +114,210 @@ class Arena extends Phaser.Scene {
     this.P.sprite = this.add.image(this.P.x, this.P.y, `pl_${this.clsKey}`).setDepth(4);
   }
 
-  spawnAll() {
-    for (const e of this.enemies) e.sprite.destroy();
-    this.enemies = [];
-    const camp = (list, cx, cy) => { const c = { members: [] }; list.forEach((k, i) => c.members.push(this.spawn(k, cx + Math.cos(i * 2.1) * 70, cy + Math.sin(i * 2.1) * 70, c))); };
-    this.spawn('dummy', 2230, 2160); this.spawn('dummy', 2300, 2060);
-    camp(['wolf', 'wolf', 'wolf'], 2000, 1250);
-    camp(['bear', 'wolf'], 2800, 2000);
-    camp(['spider', 'spider', 'bear'], 2000, 2800);
-    camp(['tiger'], 1050, 2000);
+  // ---------- 世界：篝火、妖巢、寶箱 ----------
+  genWorld() {
+    this.bonfires = []; this.camps = []; this.chests = [];
+    const C = W / 2;
+    this.addBonfire(C, C - 90);
+    this.spawn('dummy', C + 230, C + 40); this.spawn('dummy', C + 300, C - 60);
+    const G = 4, cs = W / G;
+    for (let gx = 0; gx < G; gx++) for (let gy = 0; gy < G; gy++) {
+      const x = (gx + rand(0.25, 0.75)) * cs, y = (gy + rand(0.25, 0.75)) * cs;
+      if (d2(x, y, C, C) > 1000 * 1000) this.addBonfire(x, y);
+    }
+    const COMPS = [
+      [['wolf', 'wolf'], ['spider', 'spider'], ['wolf', 'spider'], ['snake', 'wolf']],
+      [['wolf', 'wolf', 'wolf'], ['bear', 'wolf'], ['spider', 'spider', 'snake'], ['boar', 'wolf']],
+      [['bear', 'spider', 'spider'], ['boar', 'boar', 'snake'], ['ogre', 'wolf'], ['bear', 'bear']],
+      [['ogre', 'bear', 'spider'], ['ogre', 'boar', 'snake'], ['bear', 'bear', 'snake', 'wolf']],
+    ];
+    const G2 = 9, cs2 = W / G2;
+    for (let gx = 0; gx < G2; gx++) for (let gy = 0; gy < G2; gy++) {
+      const x = (gx + rand(0.2, 0.8)) * cs2, y = (gy + rand(0.2, 0.8)) * cs2;
+      const dist = Math.hypot(x - C, y - C);
+      if (dist < 650 || Math.random() < 0.2 || this.bonfires.some(b => d2(b.x, b.y, x, y) < 380 * 380)) continue;
+      const tier = Math.min(3, Math.floor(dist / 1250));
+      this.addCamp(x, y, tier, pick(COMPS[tier]));
+    }
   }
 
-  spawn(type, x, y, camp) {
+  addBonfire(x, y) {
+    const b = { x, y, lit: false };
+    b.sprite = this.add.image(x, y, 'bonfire3_off').setDepth(1);
+    this.bonfires.push(b);
+  }
+
+  addCamp(x, y, tier, list) {
+    const c = { x, y, tier, members: [], cleared: false };
+    list.forEach((k, i) => c.members.push(this.spawn(k, x + Math.cos(i * 2.1) * 75, y + Math.sin(i * 2.1) * 75, c, tier)));
+    this.camps.push(c);
+  }
+
+  updateCamps() {
+    for (const c of this.camps) {
+      if (c.cleared || c.members.some(e => e.hp > 0)) continue;
+      c.cleared = true;
+      const ch = { x: c.x, y: c.y, tier: c.tier, open: false };
+      ch.sprite = this.add.image(c.x, c.y, 'chest3').setDepth(2);
+      ch.glow = this.vfx.glow(ch, 160, 0xffd98a, 0.5).setDepth(1);
+      this.chests.push(ch);
+      this.vfx.flash(c.x, c.y, 200, 0xffd98a, 400);
+      hud.toast('清空妖巢，出現了寶箱（F 開啟）', '#ffd98a');
+    }
+  }
+
+  openChest(ch) {
+    const P = this.P;
+    ch.open = true; ch.sprite.setTexture('chest3_open'); ch.glow.destroy();
+    this.vfx.sparks(ch.x, ch.y, 0xffd98a, 24);
+    sfx.item();
+    const els = ELEMS.filter(e => e !== P.elem).sort(() => Math.random() - 0.5).slice(0, 2);
+    const runes = Math.round(80 * (1 + ch.tier));
+    const opts = els.map(e => {
+      const S = CLASSES[e].skill, same = P.eSkill === e;
+      return { label: `${same ? '強化' : P.eSkill ? '替換 E：' : '學會 E：'}${S.name}`, desc: `${e}屬戰技・${S.desc}（${S.cost} 真元）`, elem: e, kind: 'skill' };
+    });
+    opts.push({ label: `靈石 ×${runes}`, desc: '拿去篝火升級', kind: 'runes', n: runes });
+    this.offer('寶箱・擇一', opts, i => {
+      const o = opts[i];
+      if (o.kind === 'runes') { P.runes += o.n; return; }
+      if (P.eSkill === o.elem) P.eLvl++; else { P.eSkill = o.elem; P.eLvl = 1; P.eCd = 0; }
+      hud.start(this);
+    });
+  }
+
+  // ---------- 篝火：點亮給心法、回滿、用靈石升級 ----------
+  rest(b) {
+    const P = this.P;
+    P.hp = P.maxHp; P.flask = P.flaskMax; P.mp = P.maxMp; P.st = P.maxSt;
+    this.vfx.sparks(b.x, b.y, 0xff9a3c, 24);
+    let lv = 0;
+    while (P.level < LEVEL.max && P.runes >= LEVEL.cost(P.level)) {
+      P.runes -= LEVEL.cost(P.level); P.level++; lv++;
+      const k = 1 + LEVEL.hp; P.maxHp = Math.round(P.maxHp * k); P.hp = P.maxHp;
+      P.dmgMul += LEVEL.dmg;
+    }
+    if (lv) { sfx.levelup(); hud.banner(`修為精進 ${lv} 級・Lv${P.level}`); }
+    if (!b.lit) {
+      b.lit = true; b.sprite.setTexture('bonfire3');
+      b.glow = this.vfx.glow(b, 420, 0xff9a3c, 0.3).setDepth(-8);
+      this.offerBoons('點亮篝火・五行祖師賜下心法');
+    } else if (!lv) hud.toast('在篝火旁休息：肉身、丹藥、真元回滿', '#ff9a3c');
+  }
+
+  // ---------- 心法 ----------
+  has(id) { return this.P.boons.has(id); }
+
+  offerBoons(title) {
+    const P = this.P, owned = P.boons;
+    const elemsOwned = new Set([...owned].map(id => BOONS[id].elem).filter(Boolean));
+    const singles = Object.keys(BOONS).filter(id => !BOONS[id].duo && !owned.has(id));
+    const duos = Object.keys(BOONS).filter(id => BOONS[id].duo && !owned.has(id) && BOONS[id].duo.every(e => elemsOwned.has(e)));
+    const opts = [];
+    if (duos.length && Math.random() < 0.6) opts.push(pick(duos));
+    const pool = singles.sort(() => Math.random() - 0.5).sort((a, b) => (BOONS[b].elem === P.elem) - (BOONS[a].elem === P.elem) + (Math.random() - 0.5) * 1.6);
+    for (const id of pool) {
+      if (opts.length >= 3) break;
+      if (opts.some(o => BOONS[o].elem && BOONS[o].elem === BOONS[id].elem)) continue;
+      opts.push(id);
+    }
+    if (!opts.length) return;
+    this.offer(title, opts.map(id => ({ label: BOONS[id].name, desc: BOONS[id].desc, elem: BOONS[id].elem || BOONS[id].duo[0], duo: !!BOONS[id].duo })), i => this.applyBoon(opts[i]));
+  }
+
+  applyBoon(id) {
+    const P = this.P;
+    P.boons.add(id);
+    if (id === 'mu_wind') P.speed *= 1.12;
+    if (id === 'shui_tide') { P.maxMp += 40; P.mp += 40; }
+    if (id === 'tu_rock') { P.maxHp = Math.round(P.maxHp * 1.25); P.hp = Math.min(P.maxHp, P.hp * 1.25); }
+    hud.toast(`習得心法：<b>${BOONS[id].name}</b>　${BOONS[id].desc}`, ELEM_CSS[BOONS[id].elem || BOONS[id].duo[0]]);
+  }
+
+  // ---------- 抉擇（遊戲不暫停） ----------
+  offer(title, opts, cb) {
+    if (this.choice) { this.choiceQ.push([title, opts, cb]); return; }
+    this.choice = { title, opts, cb };
+    hud.showChoice(this);
+  }
+
+  pickChoice(i) {
+    const c = this.choice;
+    if (!c || !c.opts[i]) return;
+    this.choice = null;
+    hud.hideChoice();
+    sfx.select();
+    c.cb(i);
+    if (this.choiceQ.length) this.offer(...this.choiceQ.shift());
+  }
+
+  // ---------- 兩夜與結界 ----------
+  // 第一夜 0～9 分：5 分起收縮、8.5 分夜王翼虎；第二夜 9～18 分：14 分起收縮、17.5 分夜王蛟龍；18 分起最終王
+  updateNight(dt) {
+    const P = this.P;
+    this.clock += dt * this.clockMul;
+    const t = this.clock, DAY = 540;
+    const night = t < DAY ? 0 : t < DAY * 2 ? 1 : 2;
+    if (night !== this.night) {
+      this.night = night;
+      if (night < 2) {
+        const C = W / 2, spread = night === 0 ? 700 : 1800;
+        const cx = clamp(C + rand(-spread, spread), 2200, W - 2200), cy = clamp(C + rand(-spread, spread), 2200, W - 2200);
+        this.zone = { cx, cy, R0: night === 0 ? 4400 : 3800, Rmin: 850, R: night === 0 ? 4400 : 3800 };
+        hud.banner(night === 0 ? '第一夜' : '第二夜');
+        if (night === 1) hud.toast('新的一夜：天雷結界在別處重新展開', '#b090ff');
+      } else {
+        this.zone = { cx: this.zone.cx, cy: this.zone.cy, R0: this.zone.R, Rmin: 700, R: this.zone.R };
+        hud.banner('決戰');
+      }
+      this.flags = {};
+    }
+    const Z = this.zone, tn = t - night * DAY, F = this.flags;
+    if (night < 2) {
+      Z.R = Z.R0 + (Z.Rmin - Z.R0) * clamp((tn - 300) / 200, 0, 1);
+      if (tn >= 300 && !F.shrink) { F.shrink = true; hud.toast('⚡ 天雷結界開始收縮！', '#b090ff'); }
+      if (tn >= 510 && !F.boss) { F.boss = true; this.spawnBoss(night === 0 ? 'tiger' : 'dragon'); }
+    } else {
+      Z.R = Z.R0 + (Z.Rmin - Z.R0) * clamp(tn / 40, 0, 1);
+      if (!F.boss) { F.boss = true; this.spawnBoss('emperor'); }
+    }
+    // 結界外受雷擊
+    this.outside = d2(P.x, P.y, Z.cx, Z.cy) > Z.R * Z.R;
+    if (this.outside && (this.zoneTick -= dt) <= 0) {
+      this.zoneTick = 0.5;
+      P.hp -= P.maxHp * 0.04; P.lastHit = this.t;
+      this.vfx.bolt(P.x, P.y, 0xbfd8ff);
+      if (P.hp <= 0) { P.hp = 0; this.gameOver(); }
+    }
+    // 夜色：每一夜越來越暗
+    const dark = night < 2 ? 0.34 * clamp(tn / DAY, 0, 1) : 0.4;
+    this.nightShade.setAlpha(dark);
+    const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    const sec = x => Math.max(0, x / this.clockMul);
+    const tag = ['第一夜', '第二夜', '決戰'][night];
+    if (night === 2) this.nightInfo = `${tag}・斬殺妖皇`;
+    else if (tn < 300) this.nightInfo = `${tag}・結界 ${fmt(sec(300 - tn))} 後收縮`;
+    else if (tn < 510) this.nightInfo = `${tag}・夜王 ${fmt(sec(510 - tn))} 後現身`;
+    else this.nightInfo = `${tag}・夜王現身`;
+  }
+
+  spawnBoss(type) {
+    const P = this.P, Z = this.zone;
+    const a = rand(0, Math.PI * 2), r = Math.min(350, Z.R * 0.5);
+    const x = clamp(Z.cx + Math.cos(a) * r, 100, W - 100), y = clamp(Z.cy + Math.sin(a) * r, 100, W - 100);
+    const b = this.spawn(type, x, y, null, 0);
+    b.aggro = true; b.announced = true;
+    hud.banner(ENEMIES[type].name);
+    this.cameras.main.shake(500, 0.008);
+    sfx.roar();
+    if (d2(P.x, P.y, x, y) > 900 * 900) hud.toast(`${ENEMIES[type].name}在結界中央現身，看小地圖紅點`, '#ff5050');
+  }
+
+  spawn(type, x, y, camp, tier = 0) {
     const T = ENEMIES[type];
+    const hp = T.hp * (1 + 0.5 * tier);
     const e = {
-      type, T, x, y, r: T.r, hp: T.hp, maxHp: T.hp, poise: T.poise, maxPoise: T.poise, elem: T.elem,
+      type, T, x, y, r: T.r, hp, maxHp: hp, poise: T.poise * (1 + 0.3 * tier), maxPoise: T.poise * (1 + 0.3 * tier), elem: T.elem, tier, dmgMul: 1 + 0.25 * tier,
       home: { x, y }, camp, aggro: false, atk: null, cds: {}, thinkT: rand(0.3, 1), orbit: Math.random() < 0.5 ? 1 : -1,
       stagT: 0, freezeT: 0, rootT: 0, markT: 0, burn: 0, burnT: 0, burnTick: 0, slowT: 0, slowF: 1, kx: 0, ky: 0, flash: 0, windMul: 1, phase2: false,
       sprite: this.add.image(x, y, T.img ? `en_${type}` : 'dummy3').setDepth(T.boss ? 3 : 2),
@@ -146,8 +336,10 @@ class Arena extends Phaser.Scene {
     const ets = this.slowmo > 0 ? 0.25 : 1;
     const dt = raw, edt = raw * ets;
     this.t += dt;
+    this.updateNight(dt);
     this.updatePlayer(dt);
     this.updateEnemies(edt);
+    this.updateCamps();
     this.updatePProj(dt);
     this.updateEProj(edt);
     this.updateAreas(dt, edt);
@@ -190,11 +382,13 @@ class Arena extends Phaser.Scene {
     // 閃避
     let mx = (k.D.isDown || k.RIGHT.isDown) - (k.A.isDown || k.LEFT.isDown);
     let my = (k.S.isDown || k.DOWN.isDown) - (k.W.isDown || k.UP.isDown);
-    if (JD(k.SPACE) && P.dodgeCd <= 0 && P.st >= 22 && P.stunT <= 0 && P.dashT <= 0) {
+    const dodgeCost = this.has('mu_wind') ? 15 : 22;
+    if (JD(k.SPACE) && P.dodgeCd <= 0 && P.st >= dodgeCost && P.stunT <= 0 && P.dashT <= 0) {
       const a = mx || my ? Math.atan2(my, mx) : this.aim;
       P.dvx = Math.cos(a) * 1250; P.dvy = Math.sin(a) * 1250;
       P.dashT = 0.16; P.inv = 0.26; P.dodgeAt = this.t; P.dodgeCd = 0.32;
-      P.st -= 22; P.stDelay = 0.6;
+      P.st -= dodgeCost; P.stDelay = 0.6;
+      if (this.has('duo_rainwood')) P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.03);
       P.act = null; P.charge = -1;
       if (P.elem === '金') P.critNext = true;
       sfx.dash();
@@ -257,9 +451,21 @@ class Arena extends Phaser.Scene {
     // 戰技
     if (Rp && P.skillCd <= 0 && P.stunT <= 0 && P.dashT <= 0 && (!P.act || P.elem === '水')) {
       if (P.mp < C.skill.cost) hud.toast('真元不足', '#3aa7c7');
-      else { P.mp -= C.skill.cost; P.skillCd = C.skill.cd; P.charge = -1; this.castSkill(); }
+      else { P.mp -= C.skill.cost; P.skillCd = C.skill.cd * (this.has('shui_tide') ? 0.75 : 1); P.charge = -1; this.castSkill(P.elem, 1.25); }
     }
-    if (JD(k.E)) hud.toast('E 格戰技要在地圖上撿到（第三階段）', '#999');
+    P.eCd -= dt;
+    if (JD(k.E)) {
+      const S = P.eSkill && CLASSES[P.eSkill].skill;
+      if (!S) hud.toast('E 格還沒有戰技：清空妖巢開寶箱可以拿到', '#999');
+      else if (P.eCd > 0 || P.stunT > 0 || P.dashT > 0 || (P.act && P.eSkill !== '水')) { /* 冷卻或動作中 */ }
+      else if (P.mp < S.cost) hud.toast('真元不足', '#3aa7c7');
+      else { P.mp -= S.cost; P.eCd = S.cd * (this.has('shui_tide') ? 0.75 : 1); P.charge = -1; this.castSkill(P.eSkill, 1 + 0.25 * (P.eLvl - 1)); }
+    }
+    // 抉擇
+    if (this.choice) { if (JD(k.ONE)) this.pickChoice(0); else if (JD(k.TWO)) this.pickChoice(1); else if (JD(k.THREE)) this.pickChoice(2); }
+    // 心法：回春、金剛劍計時
+    if (this.has('mu_spring') && this.t - P.lastHit > 3) P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.015 * dt);
+    P.vajraT -= dt;
     // 大招
     if (JD(k.Q)) {
       if (P.ult < 100) hud.toast(`大招氣 ${Math.floor(P.ult)}%`, '#ffd98a');
@@ -275,10 +481,12 @@ class Arena extends Phaser.Scene {
     }
     // F：處決 > 篝火
     this.execTarget = this.enemies.find(e => e.stagT > 0 && !e.T.dummy && d2(e.x, e.y, P.x, P.y) < (e.r + 70) ** 2) || null;
-    this.nearFire = d2(P.x, P.y, this.bonfire.x, this.bonfire.y) < 90 * 90;
+    this.nearFire = this.bonfires.find(b => d2(P.x, P.y, b.x, b.y) < 90 * 90) || null;
+    this.nearChest = this.chests.find(c => !c.open && d2(P.x, P.y, c.x, c.y) < 80 * 80) || null;
     if (JD(k.F)) {
       if (this.execTarget && P.stunT <= 0) this.execute(this.execTarget);
-      else if (this.nearFire) this.rest();
+      else if (this.nearChest) this.openChest(this.nearChest);
+      else if (this.nearFire) this.rest(this.nearFire);
     }
   }
 
@@ -396,9 +604,9 @@ class Arena extends Phaser.Scene {
   }
 
   // ---------- 戰技 ----------
-  castSkill() {
-    const P = this.P, C = P.cls, S = C.skill;
-    switch (P.elem) {
+  castSkill(elem = this.P.elem, mul = 1) {
+    const P = this.P, S0 = CLASSES[elem].skill, S = { ...S0, dmg: S0.dmg * mul };
+    switch (elem) {
       case '金': {
         const ang = this.aim, hit = new Set();
         this.startAct({ wind: 0.06, rec: 0.22, move: 0, ang, fire: () => {
@@ -497,7 +705,12 @@ class Arena extends Phaser.Scene {
     if (P.elem === '金' && (e.markT > 0 || e.hp < e.maxHp * 0.4)) m *= 1.25;
     if (P.elem === '木' && e.T.fast) m *= 1.3;
     if (e.stagT > 0) m *= 1.3;
-    if (o.basic && P.critNext) { m *= 1.5; crit = true; P.critNext = false; }
+    m *= P.dmgMul;
+    if (o.basic && this.has('jin_edge')) m *= 1.2;
+    if (this.has('jin_hunt') && (e.markT > 0 || e.hp < e.maxHp * 0.4)) m *= 1.2;
+    if (this.has('huo_heart') && e.burn > 0) m *= 1.25;
+    if (P.vajraT > 0) m *= 1.4;
+    if (o.basic && (P.critNext || P.critCount > 0)) { m *= 1.5; crit = true; if (P.critCount > 0) P.critCount--; else P.critNext = false; }
     const dmg = base * m * rand(0.95, 1.05);
     e.hp -= dmg;
     if (e.T.dummy) { this.dps.push([this.t, dmg]); e.hp = e.maxHp; }
@@ -511,7 +724,13 @@ class Arena extends Phaser.Scene {
       e.poise -= o.poise * (o.exec ? 0 : 1);
       if (e.poise <= 0) this.stagger(e);
     }
-    if (o.burn) { e.burn = Math.min(6, e.burn + o.burn); e.burnT = 4; }
+    const burn = (o.burn || 0) + (this.has('huo_karma') ? 1 : 0);
+    if (burn) { e.burn = Math.min(6, e.burn + burn); e.burnT = 4; }
+    if (crit && this.has('duo_frostblade')) e.freezeT = Math.max(e.freezeT, 1);
+    if (this.has('mu_bind') && Math.random() < 0.12) e.rootT = Math.max(e.rootT, 1);
+    if (this.has('shui_frost')) { e.slowT = 1.5; e.slowF = Math.min(e.slowF, 0.7); }
+    if (o.heavy && !o.echo && this.has('tu_quake')) this.hitCircle(e.x, e.y, 90, 25, { poise: 8, echo: true });
+    if (o.heavy && !o.echo && this.has('duo_lava') && (this.lavaT || 0) < this.t) { this.lavaT = this.t + 0.5; this.areas.push({ own: 'p', kind: 'zone', x: e.x, y: e.y, R: 70, life: 2, max: 2, tick: 0.4, tickT: 0, dmg: 8, poise: 2, burn: 1, color: ELEM_HEX['火'] }); }
     if (o.root) e.rootT = o.root;
     if (o.mark) e.markT = o.mark;
     if (o.slow) { e.slowT = 0.3; e.slowF = o.slow; }
@@ -550,6 +769,7 @@ class Arena extends Phaser.Scene {
     this.cameras.main.shake(220, 0.01);
     P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.05);
     P.ult = Math.min(100, P.ult + 15);
+    if (this.has('duo_vajra')) P.vajraT = 6;
     sfx.slam();
   }
 
@@ -569,7 +789,15 @@ class Arena extends Phaser.Scene {
     this.vfx.smoke(e.x, e.y, e.T.boss ? 10 : 4);
     this.vfx.flash(e.x, e.y, e.T.boss ? 260 : 90, ELEM_HEX[e.elem], 260);
     sfx.kill();
-    if (e.T.boss) { hud.banner('妖王伏誅'); sfx.bossDie(); }
+    const gain = Math.round((e.T.exp || 0) * (1 + 0.5 * (e.tier || 0)));
+    if (gain) { this.P.runes += gain; this.popText(e.x, e.y - e.r - 20, `+${gain} 靈石`, '#7fffe0', 15); }
+    if (this.has('huo_burst') && !e.T.dummy) { this.hitCircle(e.x, e.y, 100, 40, { poise: 10, echo: true }); this.vfx.flash(e.x, e.y, 200, 0xff8a2a, 250); }
+    if (this.has('duo_wildfire') && e.burn > 0) for (const o of this.enemies) if (o.hp > 0 && d2(o.x, o.y, e.x, e.y) < 160 * 160) { o.burn = Math.min(6, o.burn + 3); o.burnT = 4; }
+    if (e.T.boss) {
+      sfx.bossDie();
+      if (e.T.final) { this.time.delayedCall(1500, () => this.victory()); hud.banner('妖皇伏誅'); }
+      else { hud.banner(`${e.T.name}伏誅`); this.offerBoons('擊敗夜王・五行祖師賜下心法'); this.P.flask = this.P.flaskMax; }
+    }
   }
 
   // 玩家被打：回傳是否真的受傷
@@ -582,6 +810,7 @@ class Arena extends Phaser.Scene {
     if (P.parry > 0) {
       P.parry = 0; P.inv = 0.4; P.act = null;
       P.mp = Math.min(P.maxMp, P.mp + 30);
+      if (this.has('shui_mirror')) P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.08);
       if (src && src.hp > 0) { this.stagger(src); src.freezeT = 1.5; }
       this.popText(P.x, P.y - 40, '彈反', '#7fd0ff', 24);
       this.vfx.sigil(P.x, P.y, 70, 0x7fd0ff, 500);
@@ -591,7 +820,8 @@ class Arena extends Phaser.Scene {
       sfx.craft();
       return false;
     }
-    const dr = (P.armorT > 0 ? 0.3 : 1) * (P.elem === '土' && P.act && P.act.armor ? 0.7 : 1);
+    const dr = (P.armorT > 0 ? 0.3 : 1) * (P.elem === '土' && P.act && P.act.armor ? 0.7 : 1) * (this.has('tu_thick') ? 0.85 : 1);
+    P.lastHit = this.t;
     P.hp -= dmg * dr;
     P.sq = 0.28;
     this.vfx.hit(P.x, P.y, 0xff3030, true);
@@ -610,19 +840,13 @@ class Arena extends Phaser.Scene {
     const P = this.P;
     this.slowmo = 1.1;
     P.critNext = true;
+    if (this.has('jin_heart')) P.critCount = 3;
+    if (this.has('shui_mirror')) P.hp = Math.min(P.maxHp, P.hp + P.maxHp * 0.08);
     P.mp = Math.min(P.maxMp, P.mp + 10);
     this.popText(P.x, P.y - 44, '神識・完美閃避', '#c0a0ff', 20);
     this.vfx.ring(P.x, P.y, 140, 0xb090ff, 500);
     this.vfx.flash(P.x, P.y, 160, 0x9a70ff, 300);
     sfx.slow();
-  }
-
-  rest() {
-    const P = this.P;
-    P.hp = P.maxHp; P.flask = P.flaskMax; P.mp = P.maxMp; P.st = P.maxSt;
-    this.spawnAll();
-    this.burst(this.bonfire.x, this.bonfire.y, 0xff9a3c, 30, 200, 3, 0.7);
-    hud.toast('在篝火旁休息：肉身、丹藥、真元回滿，妖獸重新出現', '#ff9a3c');
   }
 
   // ---------- 妖獸 AI ----------
@@ -736,7 +960,7 @@ class Arena extends Phaser.Scene {
     } else if (a.phase === 'dash') {
       const v = st.len / 0.18;
       e.x += Math.cos(a.ang) * v * dt; e.y += Math.sin(a.ang) * v * dt;
-      if (!a.hitP && d2(e.x, e.y, P.x, P.y) < (e.r + P.r + st.width * 0.3) ** 2) { a.hitP = true; this.hitPlayer(st.dmg, e); }
+      if (!a.hitP && d2(e.x, e.y, P.x, P.y) < (e.r + P.r + st.width * 0.3) ** 2) { a.hitP = true; this.hitPlayer(st.dmg * e.dmgMul, e); }
       this.part(e.x, e.y, 0, 0, ELEM_HEX[e.elem], e.r * 0.5, 0.25);
       if (a.t >= 0.18) this.nextStep(e);
     } else if (a.phase === 'hop') {
@@ -753,7 +977,7 @@ class Arena extends Phaser.Scene {
     switch (st.k) {
       case 'arc': {
         const dd = Math.sqrt(d2(P.x, P.y, e.x, e.y));
-        if (dd < st.range + P.r && angDiff(Math.atan2(P.y - e.y, P.x - e.x), a.ang) < st.half) this.hitPlayer(st.dmg, e);
+        if (dd < st.range + P.r && angDiff(Math.atan2(P.y - e.y, P.x - e.x), a.ang) < st.half) this.hitPlayer(st.dmg * e.dmgMul, e);
         this.vfx.claw(e.x, e.y, a.ang, st.range);
         e.sq = -0.15;
         break;
@@ -763,30 +987,30 @@ class Arena extends Phaser.Scene {
         break;
       case 'circle': {
         const cx = st.at === 'self' ? e.x : a.tx, cy = st.at === 'self' ? e.y : a.ty;
-        if (d2(P.x, P.y, cx, cy) < (st.R + P.r) ** 2) this.hitPlayer(st.dmg, e);
+        if (d2(P.x, P.y, cx, cy) < (st.R + P.r) ** 2) this.hitPlayer(st.dmg * e.dmgMul, e);
         this.ringFx(cx, cy, st.R, 0xff4040);
         this.vfx.dirt(cx, cy, st.rock ? 16 : 10); this.vfx.smoke(cx, cy, 4);
         sfx.slam();
         break;
       }
       case 'ring':
-        this.areas.push({ own: 'e', kind: 'ring', x: e.x, y: e.y, r: e.r, R: st.R, speed: st.speed, dmg: st.dmg, src: e, hit: false });
+        this.areas.push({ own: 'e', kind: 'ring', x: e.x, y: e.y, r: e.r, R: st.R, speed: st.speed, dmg: st.dmg * e.dmgMul, src: e, hit: false });
         sfx.roar();
         break;
       case 'proj':
         for (let i = 0; i < st.n; i++) {
           const ang = a.ang + (st.n > 1 ? (i / (st.n - 1) - 0.5) * st.spread * 2 : 0);
-          this.shootE({ x: e.x, y: e.y, ang, speed: st.speed, dmg: st.dmg, r: st.size, tex: st.tex, root: st.root, src: e });
+          this.shootE({ x: e.x, y: e.y, ang, speed: st.speed, dmg: st.dmg * e.dmgMul, r: st.size, tex: st.tex, root: st.root, src: e });
         }
         sfx.barrage();
         break;
       case 'hop':
         a.phase = 'hop'; return;
       case 'pool':
-        this.areas.push({ own: 'e', kind: 'pool', x: a.tx, y: a.ty, R: st.R, life: st.life, tick: 0.5, tickT: 0, dmg: st.dmg, src: e });
+        this.areas.push({ own: 'e', kind: 'pool', x: a.tx, y: a.ty, R: st.R, life: st.life, tick: 0.5, tickT: 0, dmg: st.dmg * e.dmgMul, src: e });
         break;
       case 'summon':
-        for (let i = 0; i < st.n; i++) { const w = this.spawn(st.type, e.x + rand(-80, 80), e.y + rand(-80, 80)); w.aggro = true; }
+        for (let i = 0; i < st.n; i++) { const w = this.spawn(st.type, e.x + rand(-80, 80), e.y + rand(-80, 80), null, 1); w.aggro = true; }
         sfx.roar();
         break;
     }
@@ -922,8 +1146,14 @@ class Arena extends Phaser.Scene {
   draw() {
     const g = this.tele, f = this.fx, P = this.P;
     g.clear(); f.clear();
-    // 篝火範圍
-    g.fillStyle(0xff9a3c, 0.08).fillCircle(this.bonfire.x, this.bonfire.y, 90);
+    // 篝火範圍、寶箱
+    for (const b of this.bonfires) if (Math.abs(b.x - P.x) < 900 && Math.abs(b.y - P.y) < 700) g.fillStyle(b.lit ? 0xff9a3c : 0x999999, 0.08).fillCircle(b.x, b.y, 90);
+    // 結界
+    if (this.zone) {
+      const Z = this.zone, pulse = 0.6 + 0.3 * Math.sin(this.t * 6);
+      f.lineStyle(9000, 0x140630, 0.45).strokeCircle(Z.cx, Z.cy, Z.R + 4500);
+      f.lineStyle(5, 0x9a6bff, pulse).strokeCircle(Z.cx, Z.cy, Z.R);
+    }
     // 妖獸預警
     for (const e of this.enemies) {
       const a = e.atk;
@@ -1052,7 +1282,14 @@ class Arena extends Phaser.Scene {
   gameOver() {
     this.over = true;
     sfx.lose();
-    hud.over();
+    hud.over(false, this);
+  }
+
+  victory() {
+    if (this.over) return;
+    this.over = true;
+    sfx.win();
+    hud.over(true, this);
   }
 }
 
@@ -1061,29 +1298,32 @@ const hud = {
   start(s) {
     $('v3hud').classList.remove('hidden');
     $('over').classList.add('hidden');
-    $('toasts').innerHTML = '';
-    const C = s.P.cls;
+    if (!s.t) $('toasts').innerHTML = '';
+    const P = s.P, C = P.cls, E = P.eSkill && CLASSES[P.eSkill].skill;
     $('slots').innerHTML = [
-      ['左鍵', C.basic.name, ''],
+      ['左鍵', C.basic.name, C.basic.charged ? '按住＝蓄力重擊' : ''],
       ['右鍵', C.skill.name, `${C.skill.cost} 真元`],
-      ['E', '（空）', '地圖上撿'],
+      ['E', E ? `${E.name}${P.eLvl > 1 ? ` +${P.eLvl - 1}` : ''}` : '（空）', E ? `${E.cost} 真元` : '寶箱取得'],
       ['Q', C.ult.name, '大招'],
       ['R', '丹藥', ''],
     ].map(([k, n, c], i) => `<div class="slot" id="slot${i}"><div class="key">${k}</div><div class="nm">${n}</div><div class="lv">${c}</div><div class="cd"></div></div>`).join('');
-    $('who').innerHTML = `<b style="color:${ELEM_CSS[s.P.elem]}">${s.P.elem}・${C.name}</b><span class="small">${C.passive}</span>`;
   },
   update(s) {
     const P = s.P;
+    $('who').innerHTML = `<b style="color:${ELEM_CSS[P.elem]}">${P.elem}・${P.cls.name}　Lv${P.level}</b><span class="small">靈石 ${P.runes}${P.level < LEVEL.max ? ` / 升級需 ${LEVEL.cost(P.level)}${P.runes >= LEVEL.cost(P.level) ? '（回篝火升級！）' : ''}` : ''}</span>`;
     $('hpb').style.width = `${P.hp / P.maxHp * 100}%`; $('hpt').textContent = `肉身 ${Math.ceil(P.hp)} / ${P.maxHp}`;
     $('stb').style.width = `${P.st / P.maxSt * 100}%`;
     $('mpb').style.width = `${P.mp / P.maxMp * 100}%`; $('mpt').textContent = `真元 ${Math.floor(P.mp)}`;
-    const cd = [0, Math.max(0, P.skillCd / P.cls.skill.cd), 1, 1 - P.ult / 100, P.flask ? 0 : 1];
+    const E = P.eSkill && CLASSES[P.eSkill].skill;
+    const cd = [0, Math.max(0, P.skillCd / P.cls.skill.cd), E ? Math.max(0, P.eCd / E.cd) : 1, 1 - P.ult / 100, P.flask ? 0 : 1];
     cd.forEach((v, i) => { const el = document.querySelector(`#slot${i} .cd`); if (el) el.style.width = `${v * 100}%`; });
     const u = document.querySelector('#slot3 .lv'); if (u) u.textContent = P.ult >= 100 ? '可施放！' : `${Math.floor(P.ult)}%`;
     const f = document.querySelector('#slot4 .lv'); if (f) f.textContent = `剩 ${P.flask} 瓶`;
     $('slowfx').classList.toggle('on', s.slowmo > 0);
+    $('night').textContent = s.nightInfo + (s.outside ? '　⚡ 你在結界外！' : '');
+    $('boons').innerHTML = [...P.boons].map(id => `<span style="color:${ELEM_CSS[BOONS[id].elem || BOONS[id].duo[0]]}">${BOONS[id].name}</span>`).join('・');
     // 妖王血條
-    const boss = s.enemies.find(e => e.T.boss && e.aggro && e.hp > 0);
+    const boss = s.enemies.find(e => e.T.boss && e.aggro && e.hp > 0 && d2(e.x, e.y, P.x, P.y) < 1400 * 1400);
     $('bossbar').classList.toggle('hidden', !boss);
     if (boss) {
       $('bossname').textContent = boss.T.name + (boss.phase2 ? '・狂怒' : '');
@@ -1092,10 +1332,35 @@ const hud = {
     }
     let pr = '';
     if (s.execTarget) pr = '<b style="color:#ff5050">[F] 處決</b>';
-    else if (s.nearFire) pr = '<b style="color:#ff9a3c">[F] 篝火休息</b>（回滿、補丹藥、重置妖獸）';
+    else if (s.nearChest) pr = '<b style="color:#ffd98a">[F] 開啟寶箱</b>';
+    else if (s.nearFire) pr = `<b style="color:#ff9a3c">[F] ${s.nearFire.lit ? '篝火休息（回滿、升級）' : '點亮篝火（獲得心法）'}</b>`;
     else { const dm = s.enemies.find(e => e.T.dummy && d2(e.x, e.y, P.x, P.y) < 400 * 400); if (dm) pr = `木樁 DPS <b style="color:#ffd98a">${Math.round(s.dpsNow())}</b>`; }
     $('prompt').innerHTML = pr;
+    this.minimap(s);
   },
+  minimap(s) {
+    const cv = $('minimap'), c = cv.getContext('2d'), S = cv.width / W, P = s.P;
+    c.fillStyle = '#20381c'; c.fillRect(0, 0, cv.width, cv.height);
+    const Z = s.zone;
+    if (Z) {
+      c.fillStyle = 'rgba(20,6,48,.6)'; c.fillRect(0, 0, cv.width, cv.height);
+      c.save(); c.beginPath(); c.arc(Z.cx * S, Z.cy * S, Z.R * S, 0, Math.PI * 2); c.clip(); c.fillStyle = '#2e5226'; c.fillRect(0, 0, cv.width, cv.height); c.restore();
+      c.strokeStyle = '#a07bff'; c.lineWidth = 1.5; c.beginPath(); c.arc(Z.cx * S, Z.cy * S, Z.R * S, 0, Math.PI * 2); c.stroke();
+    }
+    for (const cp of s.camps) if (!cp.cleared) { c.fillStyle = ['#c08080', '#e06060', '#ff3a3a', '#ff0000'][cp.tier]; c.fillRect(cp.x * S - 2, cp.y * S - 2, 3 + cp.tier, 3 + cp.tier); }
+    for (const ch of s.chests) if (!ch.open) { c.fillStyle = '#ffd98a'; c.fillRect(ch.x * S - 2, ch.y * S - 2, 4, 4); }
+    for (const b of s.bonfires) { c.fillStyle = b.lit ? '#ffb030' : '#8a8070'; c.beginPath(); c.arc(b.x * S, b.y * S, 3, 0, Math.PI * 2); c.fill(); }
+    for (const e of s.enemies) if (e.T.boss && e.hp > 0) { c.fillStyle = '#ff2020'; c.beginPath(); c.arc(e.x * S, e.y * S, 5, 0, Math.PI * 2); c.fill(); }
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(P.x * S, P.y * S, 3.5, 0, Math.PI * 2); c.fill();
+  },
+  showChoice(s) {
+    const c = s.choice, box = $('choice');
+    box.classList.remove('hidden'); $('v3hud').classList.add('choosing');
+    box.innerHTML = `<div class="ctitle">${c.title}<span class="small">　1／2／3 或點選（遊戲不會暫停）</span></div><div class="copts">${c.opts.map((o, i) =>
+      `<div class="copt${o.duo ? ' duo' : ''}" data-i="${i}" style="border-color:${o.elem ? ELEM_CSS[o.elem] : '#6b5a2e'}"><div class="k">${i + 1}</div><div class="n" style="color:${o.elem ? ELEM_CSS[o.elem] : '#ffd98a'}">${o.label}</div><div class="d">${o.desc}</div></div>`).join('')}</div>`;
+    box.querySelectorAll('.copt').forEach(el => el.onclick = () => s.pickChoice(+el.dataset.i));
+  },
+  hideChoice() { $('choice').classList.add('hidden'); $('v3hud').classList.remove('choosing'); },
   toast(msg, color = '#ffd98a') {
     const d = document.createElement('div');
     d.className = 'toast'; d.style.borderLeftColor = color; d.innerHTML = msg;
@@ -1104,12 +1369,31 @@ const hud = {
     setTimeout(() => d.remove(), 7000);
   },
   banner(text) { const b = $('banner'); b.textContent = text; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); },
-  over() {
+  over(win, s) {
     const o = $('over'); o.classList.remove('hidden');
-    o.innerHTML = '<h1>身死道消</h1><div>按 Enter 或點這裡重新選擇主修</div>';
+    hud.hideChoice();
+    const m = Math.floor(s.t / 60), sec = Math.floor(s.t % 60);
+    o.innerHTML = win
+      ? `<h1>斬殺妖皇・飛昇</h1><div>用時 ${m} 分 ${sec} 秒・Lv${s.P.level}・心法 ${s.P.boons.size} 個</div><div class="small">按 Enter 或點這裡再來一局</div>`
+      : `<h1>身死道消</h1><div>撐了 ${m} 分 ${sec} 秒・Lv${s.P.level}</div><div class="small">按 Enter 或點這裡重新選擇主修</div>`;
     o.onclick = showSelect;
   },
 };
+
+// 外部背景音樂：assets/audio/bgm.mp3 或 bgm.ogg 存在就播它（這個資料夾不上傳 GitHub）
+let bgmEl = null;
+async function startBgmFile() {
+  if (bgmEl) return;
+  let files = [];
+  try { const r = await fetch('assets/audio/list.json'); if (r.ok) files = await r.json(); } catch (e) { /* 其他伺服器沒有這個清單 */ }
+  const f = files.find(n => /^bgm\./i.test(n)) || files[0];
+  if (!f) return;
+  bgmEl = new Audio('assets/audio/' + f); bgmEl.loop = true; bgmEl.volume = 0.45;
+  toggleBgm(); // 關掉合成音樂
+  const play = () => bgmEl.play().catch(() => {});
+  play(); window.addEventListener('pointerdown', play, { once: true }); window.addEventListener('keydown', play, { once: true });
+  window.addEventListener('keydown', ev => { if (ev.key === 'b' || ev.key === 'B') bgmEl.paused ? bgmEl.play() : bgmEl.pause(); });
+}
 
 // ---------- 職業選擇 ----------
 let game = null;
