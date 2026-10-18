@@ -605,7 +605,9 @@ class Arena extends Phaser.Scene {
     // 背景音樂：探索 → 妖王在附近時戰鬥曲 → 妖皇決戰
     const nearBoss = this.enemies.find(e => e.T.boss && e.aggro && e.hp > 0 && d2(e.x, e.y, this.P.x, this.P.y) < 1600 * 1600);
     setIntensity(nearBoss ? (nearBoss.T.final ? 2 : 1) : 0);
-    setBgmMode(nearBoss ? (nearBoss.T.final ? 2 : 1) : 0);
+    // 一般戰鬥：附近有追著你的妖獸，離開戰鬥 4 秒後才換回探索
+    if (this.enemies.some(e => e.aggro && e.hp > 0 && !e.T.dummy && d2(e.x, e.y, this.P.x, this.P.y) < 700 * 700)) this.combatUntil = this.t + 4;
+    setBgmMode(nearBoss ? (nearBoss.T.final ? 2 : 1) : this.t < (this.combatUntil || 0) ? 3 : 0);
     this.hudT -= dt;
     if (this.hudT <= 0) { this.hudT = 1 / 15; hud.update(this); }
   }
@@ -1895,7 +1897,8 @@ async function startBgmFile() {
   if (!files.length) return;
   const find = k => files.find(n => n.toLowerCase().startsWith(k));
   const any = find('bgm.') || files[0];
-  bgmTracks = [find('bgm_explore') || any, find('bgm_battle') || find('bgm_explore') || any, find('bgm_final') || find('bgm_battle') || any];
+  // 0 探索、1 夜王、2 決戰、3 一般戰鬥
+  bgmTracks = [find('bgm_explore') || any, find('bgm_battle') || find('bgm_explore') || any, find('bgm_final') || find('bgm_battle') || any, find('bgm_combat') || find('bgm_explore') || any];
   toggleBgm(); // 關掉合成音樂
   const kick = () => { if (bgmEl) bgmEl.play().catch(() => {}); };
   window.addEventListener('pointerdown', kick, { once: true }); window.addEventListener('keydown', kick, { once: true });
