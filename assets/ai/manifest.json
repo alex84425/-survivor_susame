@@ -1,0 +1,221 @@
+{
+ "char": {
+  "jin_m": "assets/ai/char/jin_m.webp",
+  "jin_f": "assets/ai/char/jin_f.webp",
+  "mu_m": "assets/ai/char/mu_m.webp",
+  "mu_f": "assets/ai/char/mu_f.webp",
+  "shui_m": "assets/ai/char/shui_m.webp",
+  "shui_f": "assets/ai/char/shui_f.webp",
+  "huo_m": "assets/ai/char/huo_m.webp",
+  "huo_f": "assets/ai/char/huo_f.webp",
+  "tu_m": "assets/ai/char/tu_m.webp",
+  "tu_f": "assets/ai/char/tu_f.webp"
+ },
+ "mon": {
+  "wolf_cool": "assets/ai/mon/wolf_cool.webp",
+  "wolf_scary": "assets/ai/mon/wolf_scary.webp",
+  "bear_cool": "assets/ai/mon/bear_cool.webp",
+  "bear_scary": "assets/ai/mon/bear_scary.webp",
+  "spider_cool": "assets/ai/mon/spider_cool.webp",
+  "spider_scary": "assets/ai/mon/spider_scary.webp",
+  "boar_cool": "assets/ai/mon/boar_cool.webp",
+  "boar_scary": "assets/ai/mon/boar_scary.webp",
+  "snake_cool": "assets/ai/mon/snake_cool.webp",
+  "snake_scary": "assets/ai/mon/snake_scary.webp",
+  "ogre_cool": "assets/ai/mon/ogre_cool.webp",
+  "ogre_scary": "assets/ai/mon/ogre_scary.webp",
+  "tiger_cool": "assets/ai/mon/tiger_cool.webp",
+  "tiger_scary": "assets/ai/mon/tiger_scary.webp",
+  "dragon_cool": "assets/ai/mon/dragon_cool.webp",
+  "dragon_scary": "assets/ai/mon/dragon_scary.webp",
+  "emperor_cool": "assets/ai/mon/emperor_cool.webp",
+  "emperor_scary": "assets/ai/mon/emperor_scary.webp",
+  "bat_cool": "assets/ai/mon/bat_cool.webp",
+  "bat_scary": "assets/ai/mon/bat_scary.webp",
+  "crane_cool": "assets/ai/mon/crane_cool.webp",
+  "crane_scary": "assets/ai/mon/crane_scary.webp",
+  "golem_cool": "assets/ai/mon/golem_cool.webp",
+  "golem_scary": "assets/ai/mon/golem_scary.webp",
+  "jiangshi_cool": "assets/ai/mon/jiangshi_cool.webp",
+  "jiangshi_scary": "assets/ai/mon/jiangshi_scary.webp",
+  "python_cool": "assets/ai/mon/python_cool.webp",
+  "python_scary": "assets/ai/mon/python_scary.webp",
+  "scorpion_cool": "assets/ai/mon/scorpion_cool.webp",
+  "scorpion_scary": "assets/ai/mon/scorpion_scary.webp",
+  "tianmo_cool": "assets/ai/mon/tianmo_cool.webp",
+  "tianmo_scary": "assets/ai/mon/tianmo_scary.webp",
+  "toad_cool": "assets/ai/mon/toad_cool.webp",
+  "toad_scary": "assets/ai/mon/toad_scary.webp",
+  "wisp_cool": "assets/ai/mon/wisp_cool.webp",
+  "wisp_scary": "assets/ai/mon/wisp_scary.webp",
+  "blooddemon_cool": "assets/ai/mon/blooddemon_cool.webp",
+  "blooddemon_scary": "assets/ai/mon/blooddemon_scary.webp",
+  "corpseking_cool": "assets/ai/mon/corpseking_cool.webp",
+  "corpseking_scary": "assets/ai/mon/corpseking_scary.webp",
+  "turtle_cool": "assets/ai/mon/turtle_cool.webp",
+  "turtle_scary": "assets/ai/mon/turtle_scary.webp",
+  "ninetail_cool": "assets/ai/mon/ninetail_cool.webp",
+  "ninetail_scary": "assets/ai/mon/ninetail_scary.webp",
+  "thunderbird_cool": "assets/ai/mon/thunderbird_cool.webp",
+  "thunderbird_scary": "assets/ai/mon/thunderbird_scary.webp"
+ },
+ "vfx": {
+  "aura_flame": "assets/ai/vfx/aura_flame.webp",
+  "blood_burst": "assets/ai/vfx/blood_burst.webp",
+  "dodge_ghost": "assets/ai/vfx/dodge_ghost.webp",
+  "earth_crack": "assets/ai/vfx/earth_crack.webp",
+  "execute": "assets/ai/vfx/execute.webp",
+  "fire_burst": "assets/ai/vfx/fire_burst.webp",
+  "fire_pillar": "assets/ai/vfx/fire_pillar.webp",
+  "fireball": "assets/ai/vfx/fireball.webp",
+  "golden_bell": "assets/ai/vfx/golden_bell.webp",
+  "heal": "assets/ai/vfx/heal.webp",
+  "hit_spark": "assets/ai/vfx/hit_spark.webp",
+  "ice_burst": "assets/ai/vfx/ice_burst.webp",
+  "ice_ring": "assets/ai/vfx/ice_ring.webp",
+  "leaf_storm": "assets/ai/vfx/leaf_storm.webp",
+  "lightning": "assets/ai/vfx/lightning.webp",
+  "magic_circle_huo": "assets/ai/vfx/magic_circle_huo.webp",
+  "magic_circle_jin": "assets/ai/vfx/magic_circle_jin.webp",
+  "magic_circle_mu": "assets/ai/vfx/magic_circle_mu.webp",
+  "magic_circle_shui": "assets/ai/vfx/magic_circle_shui.webp",
+  "magic_circle_tu": "assets/ai/vfx/magic_circle_tu.webp",
+  "meteor": "assets/ai/vfx/meteor.webp",
+  "phoenix": "assets/ai/vfx/phoenix.webp",
+  "poison_cloud": "assets/ai/vfx/poison_cloud.webp",
+  "portal": "assets/ai/vfx/portal.webp",
+  "rock_spikes": "assets/ai/vfx/rock_spikes.webp",
+  "shockwave": "assets/ai/vfx/shockwave.webp",
+  "slash_cross": "assets/ai/vfx/slash_cross.webp",
+  "slash_gold": "assets/ai/vfx/slash_gold.webp",
+  "stone_seal": "assets/ai/vfx/stone_seal.webp",
+  "sword_qi": "assets/ai/vfx/sword_qi.webp"
+ },
+ "vfxanim": {
+  "sheet_explosion": {
+   "src": "assets/ai/vfx/sheet_explosion.webp",
+   "frames": 8,
+   "size": 192
+  },
+  "sheet_slash": {
+   "src": "assets/ai/vfx/sheet_slash.webp",
+   "frames": 8,
+   "size": 192
+  },
+  "fire_burst_anim": {
+   "src": "assets/ai/vfx/fire_burst_anim.webp",
+   "frames": 14,
+   "size": 256
+  },
+  "slash_anim": {
+   "src": "assets/ai/vfx/slash_anim.webp",
+   "frames": 14,
+   "size": 256
+  },
+  "lightning_anim": {
+   "src": "assets/ai/vfx/lightning_anim.webp",
+   "frames": 14,
+   "size": 256
+  },
+  "ice_burst_anim": {
+   "src": "assets/ai/vfx/ice_burst_anim.webp",
+   "frames": 14,
+   "size": 256
+  },
+  "execute_anim": {
+   "src": "assets/ai/vfx/execute_anim.webp",
+   "frames": 14,
+   "size": 256
+  },
+  "hit_spark_anim": {
+   "src": "assets/ai/vfx/hit_spark_anim.webp",
+   "frames": 14,
+   "size": 256
+  },
+  "shockwave_anim": {
+   "src": "assets/ai/vfx/shockwave_anim.webp",
+   "frames": 14,
+   "size": 256
+  },
+  "earth_crack_anim": {
+   "src": "assets/ai/vfx/earth_crack_anim.webp",
+   "frames": 14,
+   "size": 256
+  },
+  "stone_seal_anim": {
+   "src": "assets/ai/vfx/stone_seal_anim.webp",
+   "frames": 14,
+   "size": 256
+  },
+  "phoenix_anim": {
+   "src": "assets/ai/vfx/phoenix_anim.webp",
+   "frames": 14,
+   "size": 256
+  },
+  "circle_anim": {
+   "src": "assets/ai/vfx/circle_anim.webp",
+   "frames": 14,
+   "size": 256
+  },
+  "blood_burst_anim": {
+   "src": "assets/ai/vfx/blood_burst_anim.webp",
+   "frames": 14,
+   "size": 256
+  }
+ },
+ "icon": {
+  "bengshan": "assets/ai/icon/bengshan.webp",
+  "bingzhui": "assets/ai/icon/bingzhui.webp",
+  "chanteng": "assets/ai/icon/chanteng.webp",
+  "dilie": "assets/ai/icon/dilie.webp",
+  "duji": "assets/ai/icon/duji.webp",
+  "feijian": "assets/ai/icon/feijian.webp",
+  "fentian": "assets/ai/icon/fentian.webp",
+  "handi": "assets/ai/icon/handi.webp",
+  "hanyu": "assets/ai/icon/hanyu.webp",
+  "huoqiu": "assets/ai/icon/huoqiu.webp",
+  "huti": "assets/ai/icon/huti.webp",
+  "jianqi": "assets/ai/icon/jianqi.webp",
+  "jinghua": "assets/ai/icon/jinghua.webp",
+  "jingtao": "assets/ai/icon/jingtao.webp",
+  "liuyun": "assets/ai/icon/liuyun.webp",
+  "longjuan": "assets/ai/icon/longjuan.webp",
+  "luoshi": "assets/ai/icon/luoshi.webp",
+  "sanjiao": "assets/ai/icon/sanjiao.webp",
+  "sheji": "assets/ai/icon/sheji.webp",
+  "tengbian": "assets/ai/icon/tengbian.webp",
+  "tianjian": "assets/ai/icon/tianjian.webp",
+  "wanmu": "assets/ai/icon/wanmu.webp",
+  "xuanbing": "assets/ai/icon/xuanbing.webp",
+  "yanbao": "assets/ai/icon/yanbao.webp",
+  "zhantie": "assets/ai/icon/zhantie.webp",
+  "zhuque": "assets/ai/icon/zhuque.webp",
+  "zhuxian": "assets/ai/icon/zhuxian.webp",
+  "jinzhong": "assets/ai/icon/jinzhong.webp",
+  "yanlong": "assets/ai/icon/yanlong.webp",
+  "yanjia": "assets/ai/icon/yanjia.webp",
+  "huichun": "assets/ai/icon/huichun.webp"
+ },
+ "item": {
+  "bonfire": "assets/ai/item/bonfire.webp",
+  "chest": "assets/ai/item/chest.webp",
+  "chest_open": "assets/ai/item/chest_open.webp",
+  "flask": "assets/ai/item/flask.webp",
+  "runes": "assets/ai/item/runes.webp",
+  "mat1": "assets/ai/item/mat1.webp",
+  "mat2": "assets/ai/item/mat2.webp",
+  "mat3": "assets/ai/item/mat3.webp",
+  "mat4": "assets/ai/item/mat4.webp",
+  "scroll": "assets/ai/item/scroll.webp",
+  "beast_core": "assets/ai/item/beast_core.webp"
+ },
+ "env": {
+  "camp_nest": "assets/ai/env/camp_nest.webp",
+  "stone_lantern": "assets/ai/env/stone_lantern.webp",
+  "ruin_pillar": "assets/ai/env/ruin_pillar.webp",
+  "grave": "assets/ai/env/grave.webp",
+  "statue": "assets/ai/env/statue.webp",
+  "herb_patch": "assets/ai/env/herb_patch.webp"
+ },
+ "charanim": {}
+}

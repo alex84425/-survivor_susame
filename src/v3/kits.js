@@ -188,8 +188,152 @@ export const ENEMIES = {
       summon: { band: 'far', w: 1, rec: 1.0, cd: 15, steps: [{ k: 'summon', type: 'ogre', n: 1, wind: [0.9, 1.1] }] },
     },
   },
+  // ---------- 新妖獸（2026-10-19，AI 美術） ----------
+  bat: {
+    name: '蝠妖', elem: '木', r: 16, exp: 20, hp: 220, poise: 50, speed: 190, pref: 110, sight: 460, size: 66, fast: true,
+    moves: {
+      dive: { band: 'near', w: 3, rec: 0.7, steps: [{ k: 'line', len: 200, width: 40, wind: [0.4, 0.6], dmg: 14, dash: true }] },
+      swoop: { band: 'mid', w: 3, rec: 0.8, steps: [{ k: 'line', len: 300, width: 44, wind: [0.5, 0.75], dmg: 16, dash: true }, { k: 'hop', dist: 160, wind: [0.05, 0.1] }] },
+      screech: { band: 'far', w: 2, rec: 0.8, cd: 4, steps: [{ k: 'proj', n: 5, spread: 0.6, speed: 300, dmg: 10, wind: [0.5, 0.7], tex: 'wave', size: 10 }] },
+    },
+  },
+  crane: {
+    name: '鶴妖', elem: '金', r: 20, exp: 32, hp: 360, poise: 80, speed: 150, pref: 120, sight: 480, size: 82,
+    moves: {
+      peck: { band: 'near', w: 3, rec: 0.8, steps: [{ k: 'line', len: 140, width: 30, wind: [0.35, 0.55], dmg: 20 }, { k: 'line', len: 140, width: 30, wind: [0.2, 0.35], dmg: 20 }] },
+      lunge: { band: 'mid', w: 3, rec: 1.0, steps: [{ k: 'line', len: 320, width: 40, wind: [0.5, 0.8], dmg: 24, dash: true }] },
+      feathers: { band: 'far', w: 2, rec: 0.8, steps: [{ k: 'proj', n: 5, spread: 0.45, speed: 380, dmg: 14, wind: [0.55, 0.8], tex: 'sw_金', size: 9 }] },
+    },
+  },
+  golem: {
+    name: '石傀儡', elem: '土', r: 30, exp: 110, hp: 1400, poise: 300, speed: 80, pref: 95, sight: 400, size: 104, elite: true,
+    moves: {
+      smash: { band: 'near', w: 3, rec: 1.3, steps: [{ k: 'arc', range: 120, half: 1.1, wind: [0.7, 1.0], dmg: 38 }, { k: 'circle', at: 'self', R: 160, wind: [0.6, 0.9], dmg: 44 }] },
+      boulder: { band: 'far', w: 2, rec: 1.1, cd: 4, steps: [{ k: 'circle', at: 'target', R: 90, wind: [0.9, 1.1], dmg: 36, track: 0.5, rock: true }] },
+      quake: { band: 'mid', w: 2, rec: 1.2, cd: 5, steps: [{ k: 'ring', R: 380, speed: 360, wind: [0.8, 1.0], dmg: 28 }] },
+    },
+  },
+  jiangshi: {
+    name: '殭屍', elem: '水', r: 18, exp: 30, hp: 420, poise: 120, speed: 110, pref: 80, sight: 420, size: 72,
+    moves: {
+      claw: { band: 'near', w: 3, rec: 0.9, steps: [{ k: 'arc', range: 85, half: 0.8, wind: [0.45, 0.7], dmg: 22 }, { k: 'arc', range: 85, half: 0.8, wind: [0.25, 0.4], dmg: 22 }] },
+      hop: { band: 'mid', w: 3, rec: 1.0, steps: [{ k: 'circle', at: 'target', R: 80, wind: [0.6, 0.85], dmg: 24, track: 0.7 }] },
+      breath: { band: 'far', w: 1, rec: 0.8, cd: 6, steps: [{ k: 'pool', R: 90, wind: [0.8, 1.0], dmg: 9, life: 4, track: 0.6 }] },
+    },
+  },
+  python: {
+    name: '吞雲蟒', elem: '木', r: 24, exp: 40, hp: 620, poise: 130, speed: 120, pref: 100, sight: 440, size: 92,
+    moves: {
+      bite: { band: 'near', w: 3, rec: 0.9, steps: [{ k: 'arc', range: 110, half: 0.6, wind: [0.45, 0.7], dmg: 26 }] },
+      sweep: { band: 'near', w: 2, rec: 1.1, cd: 4, steps: [{ k: 'circle', at: 'self', R: 150, wind: [0.7, 0.95], dmg: 30 }] },
+      strike: { band: 'mid', w: 3, rec: 1.1, steps: [{ k: 'line', len: 360, width: 54, wind: [0.6, 0.9], dmg: 30, dash: true }] },
+      fog: { band: 'far', w: 1, rec: 0.8, cd: 6, steps: [{ k: 'pool', R: 110, wind: [0.8, 1.0], dmg: 8, life: 4, track: 0.6 }] },
+    },
+  },
+  scorpion: {
+    name: '蠍妖', elem: '火', r: 22, exp: 34, hp: 480, poise: 120, speed: 120, pref: 90, sight: 430, size: 80,
+    moves: {
+      pincer: { band: 'near', w: 3, rec: 0.9, steps: [{ k: 'arc', range: 95, half: 0.9, wind: [0.4, 0.65], dmg: 20 }, { k: 'arc', range: 95, half: 0.9, wind: [0.25, 0.4], dmg: 20 }] },
+      sting: { band: 'mid', w: 3, rec: 1.0, steps: [{ k: 'line', len: 220, width: 34, wind: [0.6, 0.85], dmg: 30 }] },
+      venom: { band: 'far', w: 2, rec: 0.8, steps: [{ k: 'proj', n: 3, spread: 0.3, speed: 300, dmg: 14, wind: [0.55, 0.8], tex: 'venom', size: 9 }] },
+    },
+  },
+  tianmo: {
+    name: '天魔', elem: '火', r: 26, exp: 130, hp: 1300, poise: 240, speed: 150, pref: 110, sight: 500, size: 96, elite: true,
+    moves: {
+      blades: { band: 'near', w: 3, rec: 0.9, steps: [
+        { k: 'arc', range: 120, half: 1.0, wind: [0.45, 0.7], dmg: 30 }, { k: 'arc', range: 120, half: 1.0, wind: [0.25, 0.4], dmg: 30 }, { k: 'circle', at: 'self', R: 150, wind: [0.5, 0.75], dmg: 36 }] },
+      blink: { band: 'mid', w: 3, rec: 0.9, steps: [{ k: 'line', len: 380, width: 60, wind: [0.5, 0.75], dmg: 34, dash: true }] },
+      hellfire: { band: 'far', w: 2, rec: 1.0, steps: [{ k: 'proj', n: 7, spread: 0.8, speed: 320, dmg: 18, wind: [0.6, 0.85], tex: 'fire_火', size: 10 }] },
+    },
+  },
+  toad: {
+    name: '蟾蜍王', elem: '水', r: 26, exp: 45, hp: 760, poise: 160, speed: 95, pref: 110, sight: 420, size: 92,
+    moves: {
+      tongue: { band: 'mid', w: 3, rec: 0.9, steps: [{ k: 'line', len: 300, width: 30, wind: [0.5, 0.75], dmg: 22 }] },
+      belly: { band: 'near', w: 3, rec: 1.1, steps: [{ k: 'circle', at: 'self', R: 130, wind: [0.6, 0.9], dmg: 28 }] },
+      leap: { band: 'far', w: 2, rec: 1.2, steps: [{ k: 'circle', at: 'target', R: 110, wind: [0.9, 1.1], dmg: 34, track: 0.6 }, { k: 'pool', R: 100, wind: [0.1, 0.2], dmg: 8, life: 3, track: 0 }] },
+    },
+  },
+  wisp: {
+    name: '鬼火', elem: '火', r: 16, exp: 22, hp: 200, poise: 40, speed: 130, pref: 280, sight: 460, size: 64, ranged: true,
+    moves: {
+      burst: { band: 'near', w: 3, rec: 0.6, steps: [{ k: 'circle', at: 'self', R: 100, wind: [0.5, 0.75], dmg: 18 }, { k: 'hop', dist: 220, wind: [0.05, 0.1] }] },
+      orbs: { band: 'mid', w: 3, rec: 0.7, steps: [{ k: 'proj', n: 3, spread: 0.4, speed: 280, dmg: 14, wind: [0.5, 0.75], tex: 'fire_火', size: 9 }] },
+      rain: { band: 'far', w: 2, rec: 0.8, cd: 4, steps: [{ k: 'circle', at: 'target', R: 70, wind: [0.7, 0.9], dmg: 18, track: 0.8 }, { k: 'circle', at: 'target', R: 70, wind: [0.35, 0.5], dmg: 18, track: 0.8 }] },
+    },
+  },
+  // ---------- 新夜王（每夜從夜王池隨機一隻） ----------
+  ninetail: {
+    name: '夜王・九尾天狐', elem: '火', r: 36, exp: 500, hp: 3400, poise: 320, speed: 185, pref: 120, sight: 520, size: 130, boss: true,
+    moves: {
+      tails: { band: 'near', w: 3, rec: 0.9, steps: [{ k: 'arc', range: 130, half: 1.2, wind: [0.45, 0.7], dmg: 30 }, { k: 'circle', at: 'self', R: 170, wind: [0.5, 0.8], dmg: 36 }] },
+      dash: { band: 'mid', w: 3, rec: 1.0, steps: [{ k: 'line', len: 400, width: 80, wind: [0.6, 0.85], dmg: 38, dash: true }] },
+      foxfire: { band: 'far', w: 3, rec: 0.9, steps: [{ k: 'proj', n: 9, spread: 1.1, speed: 300, dmg: 18, wind: [0.6, 0.85], tex: 'fire_火', size: 10 }] },
+    },
+    phase2: {
+      foxfire2: { band: 'far', w: 3, rec: 0.8, steps: [{ k: 'proj', n: 9, spread: 1.1, speed: 320, dmg: 18, wind: [0.5, 0.7], tex: 'fire_火', size: 10 }, { k: 'proj', n: 9, spread: 1.1, speed: 320, dmg: 18, wind: [0.3, 0.45], tex: 'fire_火', size: 10 }] },
+      summon: { band: 'far', w: 1, rec: 1.0, cd: 12, steps: [{ k: 'summon', type: 'wisp', n: 3, wind: [0.8, 1.0] }] },
+    },
+  },
+  thunderbird: {
+    name: '夜王・雷鵬', elem: '木', r: 38, exp: 500, hp: 3400, poise: 320, speed: 175, pref: 130, sight: 540, size: 130, boss: true,
+    moves: {
+      talon: { band: 'near', w: 3, rec: 0.9, steps: [{ k: 'arc', range: 130, half: 0.9, wind: [0.45, 0.7], dmg: 32 }, { k: 'arc', range: 130, half: 0.9, wind: [0.25, 0.4], dmg: 32 }] },
+      dive: { band: 'mid', w: 3, rec: 1.0, steps: [{ k: 'line', len: 420, width: 80, wind: [0.6, 0.9], dmg: 40, dash: true }] },
+      storm: { band: 'far', w: 2, rec: 1.0, cd: 4, steps: [
+        { k: 'circle', at: 'target', R: 85, wind: [0.6, 0.8], dmg: 30, track: 0.8 }, { k: 'circle', at: 'target', R: 85, wind: [0.35, 0.5], dmg: 30, track: 0.8 },
+        { k: 'circle', at: 'target', R: 85, wind: [0.35, 0.5], dmg: 30, track: 0.8 }] },
+    },
+    phase2: {
+      gale: { band: 'far', w: 2, rec: 1.0, cd: 5, steps: [{ k: 'ring', R: 560, speed: 440, wind: [0.7, 0.9], dmg: 30 }] },
+      summon: { band: 'far', w: 1, rec: 1.0, cd: 12, steps: [{ k: 'summon', type: 'bat', n: 3, wind: [0.8, 1.0] }] },
+    },
+  },
+  corpseking: {
+    name: '夜王・屍王', elem: '金', r: 38, exp: 500, hp: 3600, poise: 340, speed: 140, pref: 110, sight: 520, size: 130, boss: true,
+    moves: {
+      scepter: { band: 'near', w: 3, rec: 1.0, steps: [{ k: 'arc', range: 140, half: 1.0, wind: [0.5, 0.8], dmg: 34 }, { k: 'circle', at: 'self', R: 170, wind: [0.5, 0.8], dmg: 38 }] },
+      grasp: { band: 'mid', w: 3, rec: 1.0, steps: [{ k: 'pool', R: 120, wind: [0.7, 0.9], dmg: 10, life: 4, track: 0.7 }] },
+      bones: { band: 'far', w: 2, rec: 0.9, steps: [{ k: 'proj', n: 7, spread: 0.9, speed: 300, dmg: 18, wind: [0.6, 0.85], tex: 'sw_金', size: 10 }] },
+    },
+    phase2: {
+      summon: { band: 'far', w: 2, rec: 1.0, cd: 10, steps: [{ k: 'summon', type: 'jiangshi', n: 3, wind: [0.8, 1.0] }] },
+      deathring: { band: 'mid', w: 2, rec: 1.0, cd: 5, steps: [{ k: 'ring', R: 520, speed: 380, wind: [0.7, 0.9], dmg: 32 }] },
+    },
+  },
+  blooddemon: {
+    name: '夜王・血魔', elem: '火', r: 36, exp: 600, hp: 5200, poise: 380, speed: 160, pref: 120, sight: 600, size: 130, boss: true,
+    moves: {
+      tendrils: { band: 'near', w: 3, rec: 0.8, steps: [{ k: 'circle', at: 'self', R: 160, wind: [0.5, 0.75], dmg: 40 }, { k: 'arc', range: 160, half: 1.2, wind: [0.3, 0.5], dmg: 38 }] },
+      surge: { band: 'mid', w: 3, rec: 0.9, steps: [{ k: 'line', len: 460, width: 90, wind: [0.6, 0.9], dmg: 44, dash: true }] },
+      bloodrain: { band: 'far', w: 2, rec: 1.0, cd: 4, steps: [
+        { k: 'pool', R: 100, wind: [0.6, 0.8], dmg: 12, life: 4, track: 0.8 }, { k: 'circle', at: 'target', R: 90, wind: [0.5, 0.7], dmg: 36, track: 0.8 }] },
+    },
+    phase2: {
+      surge3: { band: 'mid', w: 4, rec: 1.0, steps: [
+        { k: 'line', len: 420, width: 90, wind: [0.5, 0.7], dmg: 44, dash: true }, { k: 'line', len: 420, width: 90, wind: [0.3, 0.5], dmg: 44, dash: true },
+        { k: 'ring', R: 520, speed: 420, wind: [0.4, 0.6], dmg: 30 }] },
+    },
+  },
+  turtle: {
+    name: '夜王・玄武', elem: '水', r: 44, exp: 600, hp: 6200, poise: 460, speed: 110, pref: 130, sight: 600, size: 140, boss: true,
+    moves: {
+      stomp: { band: 'near', w: 3, rec: 1.0, steps: [{ k: 'circle', at: 'self', R: 190, wind: [0.6, 0.9], dmg: 44 }] },
+      serpent: { band: 'mid', w: 3, rec: 0.9, steps: [{ k: 'line', len: 380, width: 60, wind: [0.5, 0.8], dmg: 40 }, { k: 'arc', range: 160, half: 1.0, wind: [0.3, 0.5], dmg: 36 }] },
+      tide: { band: 'far', w: 2, rec: 1.0, cd: 5, steps: [{ k: 'ring', R: 620, speed: 360, wind: [0.8, 1.0], dmg: 34 }] },
+      boulders: { band: 'far', w: 2, rec: 1.0, cd: 4, steps: [
+        { k: 'circle', at: 'target', R: 100, wind: [0.7, 0.9], dmg: 38, track: 0.8, rock: true }, { k: 'circle', at: 'target', R: 100, wind: [0.4, 0.6], dmg: 38, track: 0.8, rock: true }] },
+    },
+    phase2: {
+      summon: { band: 'far', w: 1, rec: 1.0, cd: 14, steps: [{ k: 'summon', type: 'toad', n: 2, wind: [0.8, 1.0] }] },
+    },
+  },
   dummy: { name: '木樁', img: null, elem: '土', r: 20, hp: 1e9, poise: 200, speed: 0, pref: 0, sight: 0, size: 50, dummy: true, moves: {} },
 };
+
+// 夜王池：第一夜、第二夜各隨機一隻
+export const NIGHT_KINGS = [['tiger', 'ninetail', 'thunderbird', 'corpseking'], ['dragon', 'blooddemon', 'turtle']];
 
 // ---------- 心法（祝福）：篝火首次點亮、擊敗夜王時三選一 ----------
 // 相生心法：同時擁有兩個相生屬性的心法時才會出現

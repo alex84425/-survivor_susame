@@ -55,6 +55,7 @@ export const CAST = {
   duji(s, c) {
     s.areas.push({ own: 'p', kind: 'zone', x: c.pt.x, y: c.pt.y, R: 115, life: 5, max: 5, tick: 0.5, tickT: 0, dmg: c.S.dmg * c.mul, color: 0x8be02c, thorns: true, ho: c.ho({ poise: c.S.poise, dot: true }) });
     s.vfx.scatter(c.pt.x, c.pt.y, 115, 0x8be02c);
+    s.vfx.aiImg('poison_cloud', c.pt.x, c.pt.y, { size: 290, dur: 5000, ease: 'Quad.In', depth: 3, alpha: 0.8 });
     sfx.shoot('木');
   },
   tengbian(s, c) {
@@ -71,6 +72,7 @@ export const CAST = {
   huichun(s, c) {
     const P = s.P;
     P.regenT = 6; P.regenRate = 0.05;
+    s.vfx.follow('heal', P, 150, 6000, { oy: -20, alpha: 0.7 });
     s.vfx.sigil(P.x, P.y, 90, 0x7fffa0, 900);
     s.vfx.leaves(P.x, P.y, 0x7fffa0, 18);
     sfx.item();
@@ -131,6 +133,7 @@ export const CAST = {
   huti(s, c) {
     const P = s.P;
     P.flameT = 8; P.flameTick = 0; P.flameC = c;
+    s.vfx.follow('aura_flame', P, 230, 8000, { alpha: 0.75, spin: 1.5 });
     s.vfx.flash(P.x, P.y, 160, 0xff8a2a, 300);
     sfx.shoot('火');
   },
@@ -166,6 +169,7 @@ export const CAST = {
   },
   luoshi(s, c) {
     s.areas.push({ own: 'p', kind: 'drop', x: c.pt.x, y: c.pt.y, R: 80, delay: 0.5, max: 0.5, dmg: c.S.dmg * c.mul, color: H('土'), rock: true, ho: c.ho({ poise: c.S.poise, heavy: true }) });
+    s.vfx.aiImg('rock_spikes', c.pt.x, c.pt.y - 30, { size: 200, delay: 450, dur: 600, depth: 6 });
     sfx.shoot('土');
   },
   yanjia(s, c) {

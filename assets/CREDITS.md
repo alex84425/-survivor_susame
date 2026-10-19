@@ -10,3 +10,7 @@ Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 `assets/env/*.png`：草原底圖與地貌物件，由 Google Gemini 生成（2026-10-18）。
 
 `assets/vfx/*.png`：Kenney Particle Pack 1.1（https://kenney.nl/assets/particle-pack），CC0。授權見 `assets/vfx/License-Kenney.txt`。
+
+## assets/ai/（2026-10-19）
+本機 AI 生成：圖片用 Qwen-Image 2.1（Comfy-Org 官方權重），動畫用 MiniMax H3（社群授權），透過 ComfyUI 產生，再由 `tools/import_ai.py` 去背、縮圖、拆序列幀。
+Qwen-Image 2.1 為非商業授權、MiniMax H3 商用需另購授權：本專案僅供非商業使用。

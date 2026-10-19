@@ -23,9 +23,53 @@ export class Vfx {
     this.glows = [];
   }
 
-  // 刀光：新月形貼圖，朝瞄準方向
+  // ---------- AI 素材（assets/ai/vfx，黑底轉透明）----------
+  has(k) { return this.s.textures.exists('ai_vfx_' + k); }
+  // 靜態特效圖：size＝最長邊像素
+  aiImg(k, x, y, o = {}) {
+    if (!this.has(k)) return null;
+    const s = this.s, src = s.textures.get('ai_vfx_' + k).getSourceImage();
+    const sc = (o.size || 200) / Math.max(src.width, src.height);
+    const im = s.add.image(x, y, 'ai_vfx_' + k).setBlendMode(ADD).setDepth(o.depth ?? 7).setScale(sc).setRotation(o.rot || 0).setAlpha(o.alpha ?? 1);
+    if (o.tint) im.setTint(o.tint);
+    if (o.keep) return im;
+    const to = { alpha: 0, duration: o.dur ?? 300, ease: o.ease ?? 'Cubic.Out', delay: o.delay || 0, onComplete: () => im.destroy() };
+    if (o.grow) to.scale = sc * o.grow;
+    if (o.spin) to.angle = im.angle + o.spin;
+    if (o.dy) to.y = y + o.dy;
+    if (o.dx) to.x = x + o.dx;
+    s.tweens.add({ targets: im, ...to });
+    return im;
+  }
+  // 序列幀特效（H3 動畫拆的）
+  anim(k, x, y, size, o = {}) {
+    const key = 'ai_fxa_' + k, s = this.s;
+    if (!s.anims.exists(key)) return null;
+    const fw = s.textures.get(key).get(0).width;
+    const sp = s.add.sprite(x, y, key).setBlendMode(ADD).setDepth(o.depth ?? 8).setScale(size / fw).setRotation(o.rot || 0);
+    if (o.tint) sp.setTint(o.tint);
+    sp.play({ key, frameRate: o.fps || 26 });
+    sp.once('animationcomplete', () => sp.destroy());
+    return sp;
+  }
+  // 跟著目標移動的特效圖
+  follow(k, target, size, dur, o = {}) {
+    const im = this.aiImg(k, target.x, target.y, { size, keep: true, depth: o.depth ?? 6, alpha: o.alpha ?? 0.9 });
+    if (!im) return false;
+    const s = this.s, base = im.scale;
+    const upd = () => { im.setPosition(target.x + (o.ox || 0), target.y + (o.oy || 0)); if (o.spin) im.angle += o.spin; };
+    s.events.on('update', upd);
+    s.tweens.add({ targets: im, alpha: { from: o.alpha ?? 0.9, to: (o.alpha ?? 0.9) * 0.55 }, scale: { from: base, to: base * 1.04 }, yoyo: true, repeat: -1, duration: 260 });
+    s.time.delayedCall(dur, () => { s.events.off('update', upd); s.tweens.add({ targets: im, alpha: 0, duration: 200, onComplete: () => im.destroy() }); });
+    return true;
+  }
+
+  // 刀光：新月形貼圖，朝瞄準方向（金屬性重擊改用 AI 金色劍光）
   slash(x, y, ang, R, color, heavy, flip) {
     const s = this.s;
+    if (heavy && color === 0xf2d16b && this.has('slash_gold')) {
+      this.aiImg('slash_gold', x + Math.cos(ang) * R * 0.55, y + Math.sin(ang) * R * 0.55, { size: R * 1.9, rot: ang, dur: 240, grow: 1.15 });
+    }
     // 大小對齊判定：新月外緣約落在攻擊距離 R
     const k = (R * 1.7) / 256;
     const img = s.add.image(x + Math.cos(ang) * R * 0.5, y + Math.sin(ang) * R * 0.5, 'fx_slash_01')
@@ -45,9 +89,10 @@ export class Vfx {
     s.tweens.add({ targets: img, alpha: { from: 1, to: 0 }, scale: k * 1.15, duration: 260, onComplete: () => img.destroy() });
   }
 
-  // 衝擊環
+  // 衝擊環（大範圍改用 AI 衝擊波）
   ring(x, y, R, color, dur = 320) {
     const s = this.s, k = (R * 2) / 256;
+    if (R >= 140 && this.has('shockwave')) this.aiImg('shockwave', x, y, { size: R * 0.6, grow: R * 2.1 / (R * 0.6), dur: dur + 120, depth: 6, alpha: 0.85 });
     const img = s.add.image(x, y, 'fx_circle_02').setBlendMode(ADD).setTint(color).setDepth(6).setScale(k * 0.3);
     s.tweens.add({ targets: img, scale: k * 1.05, alpha: { from: 1, to: 0 }, duration: dur, ease: 'Cubic.Out', onComplete: () => img.destroy() });
   }
@@ -64,7 +109,8 @@ export class Vfx {
     this.sparkE.setParticleTint(color);
     this.sparkE.explode(heavy ? 14 : 6, x, y);
     this.flash(x, y, heavy ? 70 : 38, color, heavy ? 200 : 120);
-    if (heavy) {
+    if (heavy && this.has('hit_spark')) this.aiImg('hit_spark', x, y, { size: 120, rot: Math.random() * 6, dur: 170, grow: 1.3 });
+    else if (heavy) {
       const img = this.s.add.image(x, y, 'fx_muzzle_02').setBlendMode(ADD).setTint(0xffffff).setDepth(7).setScale(0.5).setRotation(Math.random() * 6);
       this.s.tweens.add({ targets: img, alpha: { from: 1, to: 0 }, scale: 0.8, duration: 150, onComplete: () => img.destroy() });
     }
@@ -79,6 +125,7 @@ export class Vfx {
   // 處決：大閃光 + 星芒 + 環
   execute(x, y) {
     const s = this.s;
+    this.anim('execute_anim', x, y, 300, { depth: 9 });
     this.flash(x, y, 220, 0xffd24a, 300);
     const star = s.add.image(x, y, 'fx_magic_05').setBlendMode(ADD).setTint(0xffe080).setDepth(8).setScale(0.4);
     s.tweens.add({ targets: star, scale: 2.4, alpha: { from: 1, to: 0 }, angle: 45, duration: 420, ease: 'Cubic.Out', onComplete: () => star.destroy() });
@@ -89,6 +136,15 @@ export class Vfx {
   // 法陣（施法、彈反）
   sigil(x, y, R, color, dur = 500) {
     const s = this.s, k = R * 2 / 256;
+    // 依顏色挑對應五行的 AI 法陣
+    const EL = [[0xf2d16b, 'jin'], [0x5cc96b, 'mu'], [0x4aa8ff, 'shui'], [0xff6a3d, 'huo'], [0xc08a4a, 'tu'], [0x7fd0ff, 'shui'], [0x7fffa0, 'mu']];
+    const d = c => Math.abs((c >> 16) - (color >> 16)) + Math.abs(((c >> 8) & 255) - ((color >> 8) & 255)) + Math.abs((c & 255) - (color & 255));
+    const el = EL.reduce((a, b) => d(b[0]) < d(a[0]) ? b : a)[1];
+    if (this.has('magic_circle_' + el)) {
+      const im = this.aiImg('magic_circle_' + el, x, y, { size: R * 2.2, keep: true, depth: 2, alpha: 0 });
+      s.tweens.add({ targets: im, alpha: { from: 0.95, to: 0 }, angle: 60, duration: Math.max(dur, 400), onComplete: () => im.destroy() });
+      return;
+    }
     const img = s.add.image(x, y, 'fx_magic_01').setBlendMode(ADD).setTint(color).setDepth(2).setScale(k).setAlpha(0);
     s.tweens.add({ targets: img, alpha: { from: 0.9, to: 0 }, angle: 90, duration: dur, onComplete: () => img.destroy() });
   }
@@ -104,6 +160,7 @@ export class Vfx {
   // 雷擊
   bolt(x, y, color) {
     const s = this.s;
+    if (this.anim('lightning_anim', x, y - 90, 260, { depth: 9, fps: 30 })) return;
     const img = s.add.image(x, y - 120, 'fx_spark_06').setBlendMode(ADD).setTint(color).setDepth(8).setScale(0.5, 1.1);
     s.tweens.add({ targets: img, alpha: { from: 1, to: 0 }, duration: 200, onComplete: () => img.destroy() });
   }
@@ -168,6 +225,7 @@ export class Vfx {
   // 金鐘罩：金色光罩跟著玩家
   bell(P, dur, color) {
     const s = this.s;
+    if (this.follow('golden_bell', P, 120, dur, { oy: -10, alpha: 0.8 })) return;
     const a = s.add.image(P.x, P.y, 'fx_circle_02').setBlendMode(ADD).setTint(color).setDepth(6).setScale(0.55).setAlpha(0.9);
     const b = s.add.image(P.x, P.y - 4, 'fx_magic_01').setBlendMode(ADD).setTint(color).setDepth(6).setScale(0.4).setAlpha(0.5);
     const follow = () => { a.setPosition(P.x, P.y); b.setPosition(P.x, P.y - 4); b.angle += 2; };
@@ -234,6 +292,8 @@ export class Vfx {
   // 冰封：冰晶炸開加霜環
   frost(x, y, R) {
     this.flash(x, y, R * 1.4, 0x9fd8ff, 500);
+    this.anim('ice_burst_anim', x, y, R * 2.4, { depth: 8 });
+    this.aiImg('ice_ring', x, y, { size: R * 2.1, dur: 1400, depth: 3, alpha: 0.95 });
     this.img('magic_05', x, y, { color: 0xbfe8ff, scale: 0.3, grow: R * 2 / 256 / 0.3, dur: 600, spin: 60 });
     this.ring(x, y, R, 0x7fd0ff, 500);
     for (let i = 0; i < 16; i++) {
@@ -244,6 +304,7 @@ export class Vfx {
 
   // 地面裂痕
   crack(x, y, R) {
+    if (this.aiImg('earth_crack', x, y, { size: R * 2.2, dur: 900, depth: 1, alpha: 0.9, rot: Math.random() * 6 })) return;
     for (let i = 0; i < 5; i++) {
       const a = Math.random() * Math.PI * 2;
       this.img('scratch_01', x + Math.cos(a) * R * 0.35, y + Math.sin(a) * R * 0.35, { color: 0x3a2410, scale: R * 1.1 / 256, rot: a, dur: 900, normal: true, depth: 1, alpha: 0.8 });
@@ -271,6 +332,7 @@ export class Vfx {
 
   // 升龍火柱
   pillar(x, y, color) {
+    this.aiImg('fire_pillar', x, y - 90, { size: 260, dur: 520, dy: -40, depth: 8 });
     for (let i = 0; i < 8; i++) this.img('flame_05', x + (Math.random() - 0.5) * 30, y, { color, sx: 0.6, sy: 1.4, origin: [0.5, 1], dur: 500, dy: -60 - i * 10, delay: i * 25 });
     this.flash(x, y, 200, color, 300);
     for (let i = 0; i < 10; i++) this.flame(x + (Math.random() - 0.5) * 60, y + (Math.random() - 0.5) * 40);
@@ -304,6 +366,8 @@ export class Vfx {
   // 山河社稷印：方印砸下
   seal(x, y, R, color) {
     const s = this.s;
+    this.anim('stone_seal_anim', x, y, R * 2.4, { depth: 8 });
+    this.aiImg('stone_seal', x, y, { size: R * 1.5, dur: 700, grow: 1.1, depth: 7 });
     this.flash(x, y, R * 2.4, color, 600);
     const g = s.add.graphics().setDepth(6);
     g.lineStyle(10, color, 0.9).strokeRect(x - R * 0.7, y - R * 0.7, R * 1.4, R * 1.4);
@@ -321,6 +385,7 @@ export class Vfx {
 
   // 爆炸（業火爆等）
   explode(x, y, R, color) {
+    this.anim('fire_burst_anim', x, y, R * 2.8, { depth: 8 });
     this.flash(x, y, R * 2.2, color, 280);
     this.ring(x, y, R, color, 300);
     this.smoke(x, y, 3);
@@ -329,6 +394,7 @@ export class Vfx {
 
   // 流血爆發
   bleed(x, y) {
+    this.aiImg('blood_burst', x, y, { size: 150, dur: 320, grow: 1.2 });
     this.sparkE.setParticleTint(0xff2040);
     this.sparkE.explode(20, x, y);
     this.img('muzzle_02', x, y, { color: 0xff2040, scale: 0.7, dur: 260, rot: Math.random() * 6 });
@@ -337,6 +403,11 @@ export class Vfx {
   // 朱雀俯衝
   phoenix(x, y, color) {
     const s = this.s;
+    if (this.has('phoenix')) {
+      const im = this.aiImg('phoenix', x, y - 260, { size: 260, keep: true, depth: 9 });
+      s.tweens.add({ targets: im, y, duration: 170, ease: 'Quad.In', onComplete: () => { im.destroy(); this.anim('fire_burst_anim', x, y, 340); } });
+      return;
+    }
     const b = s.add.image(x - 160, y - 260, 'fx_flame_05').setBlendMode(ADD).setTint(color).setDepth(9).setScale(1.6, 0.9).setRotation(Math.atan2(260, 160));
     s.tweens.add({ targets: b, x, y, duration: 160, ease: 'Quad.In', onComplete: () => b.destroy() });
   }

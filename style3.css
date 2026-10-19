@@ -116,3 +116,13 @@ html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden; col
 #bonfire.bag { border-color: #6b5aa0; box-shadow: 0 0 40px rgba(150,120,255,.25); }
 #bonfire.bag .bfhead b { color: #c0a0ff; }
 #bonfire .warn { color: #ff8060; font-size: 12px; margin-left: 8px; }
+
+/* AI 美術：立繪、神通圖示 */
+.sexsel { display: flex; gap: 8px; align-items: center; }
+.sexsel button { background: #2a2218; color: #e8e0d0; border: 1px solid #6b5a2e; border-radius: 6px; padding: 5px 16px; cursor: pointer; font: inherit; }
+.sexsel button.on { background: #6b4a20; color: #ffd98a; border-color: #ffb050; }
+.card .por { display: block; height: 150px; margin: 0 auto 4px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,.6)); }
+.slot.hasic { padding-left: 52px; width: 140px; }
+.slot .ic { position: absolute; left: 5px; top: 7px; width: 44px; height: 44px; border-radius: 6px; }
+#bonfire .sh .ic { width: 34px; height: 34px; vertical-align: middle; margin-right: 6px; border-radius: 5px; }
+#choice .copt .ic { float: left; width: 46px; height: 46px; margin: 0 8px 4px 0; border-radius: 6px; }

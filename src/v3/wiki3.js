@@ -27,7 +27,7 @@ $('cls').innerHTML = `<h2>五個主修職業</h2><p class="muted">開局選擇�
 <div class="cards">${ELEMS.map(e => {
   const C = CLASSES[e];
   return `<div class="card" style="border-top-color:${ELEM_CSS[e]}">
-    <img src="assets/img/px_${C.img}.png" alt="">
+    <img src="assets/ai/char/${C.id}_m.webp" alt="">
     <h3>${ec(e, `${e}・${C.name}`)}</h3><div class="small" style="color:var(--gold)">${C.role}</div>
     <p class="small">肉身 ${C.hp}・遁速 ${C.speed}</p>
     <p><b>被動</b>：${C.passive}</p>
@@ -91,7 +91,7 @@ const moveTxt = (id, m) => `<div class="move"><span class="band">${BAND[m.band]}
   return `${t}${s.dmg ? ` ${s.dmg}` : ''}`;
 }).join(' → ')}<span class="small muted">　前搖 ${m.steps[0].wind.join('～')} 秒・收招 ${m.rec} 秒${m.cd ? `・冷卻 ${m.cd} 秒` : ''}</span></div>`;
 const enemyCard = ([k, T]) => `<div class="card" style="border-top-color:${ELEM_CSS[T.elem]}">
-  <img src="assets/img/px_${T.img}.png" alt="">
+  <img src="assets/ai/mon/${k}_cool.webp" onerror="this.onerror=null;this.src='assets/img/px_${T.img}.png'" alt="">
   <h3>${ec(T.elem, T.name)}</h3>
   <div class="small muted">肉身 ${T.hp}・韌性 ${T.poise}・速度 ${T.speed}${T.exp ? `・靈石 ${T.exp}` : ''}${T.fast ? '・快速' : ''}${T.ranged ? '・遠程' : ''}</div>
   ${Object.entries(T.moves).map(([id, m]) => moveTxt(id, m)).join('')}
