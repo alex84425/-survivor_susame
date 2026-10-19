@@ -217,5 +217,156 @@
   "statue": "assets/ai/env/statue.webp",
   "herb_patch": "assets/ai/env/herb_patch.webp"
  },
- "charanim": {}
+ "charanim": {
+  "jin_m_idle": {
+   "src": "assets/ai/charanim/jin_m_idle.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "jin_m_attack": {
+   "src": "assets/ai/charanim/jin_m_attack.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "jin_m_run": {
+   "src": "assets/ai/charanim/jin_m_run.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "jin_f_idle": {
+   "src": "assets/ai/charanim/jin_f_idle.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "jin_f_attack": {
+   "src": "assets/ai/charanim/jin_f_attack.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "jin_f_run": {
+   "src": "assets/ai/charanim/jin_f_run.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "mu_m_idle": {
+   "src": "assets/ai/charanim/mu_m_idle.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "mu_m_attack": {
+   "src": "assets/ai/charanim/mu_m_attack.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "mu_m_run": {
+   "src": "assets/ai/charanim/mu_m_run.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "mu_f_idle": {
+   "src": "assets/ai/charanim/mu_f_idle.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "mu_f_attack": {
+   "src": "assets/ai/charanim/mu_f_attack.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "mu_f_run": {
+   "src": "assets/ai/charanim/mu_f_run.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "shui_m_idle": {
+   "src": "assets/ai/charanim/shui_m_idle.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "shui_m_attack": {
+   "src": "assets/ai/charanim/shui_m_attack.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "shui_m_run": {
+   "src": "assets/ai/charanim/shui_m_run.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "shui_f_idle": {
+   "src": "assets/ai/charanim/shui_f_idle.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "shui_f_attack": {
+   "src": "assets/ai/charanim/shui_f_attack.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "shui_f_run": {
+   "src": "assets/ai/charanim/shui_f_run.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "huo_m_idle": {
+   "src": "assets/ai/charanim/huo_m_idle.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "huo_m_attack": {
+   "src": "assets/ai/charanim/huo_m_attack.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "huo_m_run": {
+   "src": "assets/ai/charanim/huo_m_run.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "huo_f_idle": {
+   "src": "assets/ai/charanim/huo_f_idle.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "huo_f_attack": {
+   "src": "assets/ai/charanim/huo_f_attack.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "huo_f_run": {
+   "src": "assets/ai/charanim/huo_f_run.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "tu_m_idle": {
+   "src": "assets/ai/charanim/tu_m_idle.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "tu_m_attack": {
+   "src": "assets/ai/charanim/tu_m_attack.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "tu_m_run": {
+   "src": "assets/ai/charanim/tu_m_run.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "tu_f_idle": {
+   "src": "assets/ai/charanim/tu_f_idle.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "tu_f_attack": {
+   "src": "assets/ai/charanim/tu_f_attack.webp",
+   "frames": 12,
+   "size": 256
+  },
+  "tu_f_run": {
+   "src": "assets/ai/charanim/tu_f_run.webp",
+   "frames": 12,
+   "size": 256
+  }
+ }
 }
