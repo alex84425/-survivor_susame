@@ -775,6 +775,18 @@ class Arena extends Phaser.Scene {
     P.sq = (P.sq || 0) * Math.pow(0.0005, dt); P.lean = (P.lean || 0) * Math.pow(0.001, dt);
     const moving = (mx || my) && P.dashT <= 0;
     const bob = moving ? Math.sin(this.t * 16) * 0.05 : Math.sin(this.t * 3) * 0.02;
+    // 主角動畫（有 AI 序列幀才播）：出招＝攻擊、移動＝奔跑、其餘＝待機
+    if (P.ai) {
+      const base = P.ai.replace('ai_char_', 'ai_ca_'), a = P.act;
+      const atk = a && (a.combo || a.chain || a.charging || a.ang !== undefined && a.fire && !a.flask);
+      const want = atk && this.anims.exists(base + '_attack') ? base + '_attack' : moving && this.anims.exists(base + '_run') ? base + '_run' : this.anims.exists(base + '_idle') ? base + '_idle' : null;
+      if (want) {
+        const cur = P.sprite.anims.currentAnim && P.sprite.anims.currentAnim.key;
+        if (want.endsWith('_attack')) { if (P.animAct !== a) { P.animAct = a; P.sprite.play({ key: want, frameRate: Math.max(18, 12 / Math.max(0.25, a.wind + a.rec)) }); } }
+        else if (cur !== want || !P.sprite.anims.isPlaying) P.sprite.play(want);
+        P.animated = true;
+      } else if (P.animated) { P.sprite.stop(); P.sprite.setTexture(P.ai); P.animated = false; }
+    }
     P.sprite.setScale(P.bs * (1 + P.sq), P.bs * (1 - P.sq + bob)).setRotation((moving ? Math.sin(this.t * 8) * 0.07 : 0) + P.lean * Math.sign(Math.cos(this.aim) || 1));
     this.pLight.setPosition(P.x, P.y);
 
@@ -825,7 +837,7 @@ class Arena extends Phaser.Scene {
       else if (free) {
         P.flask--;
         P.flaskT = 3.45;
-        this.startAct({ wind: 0.45, rec: 0.15, move: 0.3, fire: () => { P.hp = Math.min(P.maxHp, P.hp + P.maxHp * P.flaskHeal); this.burst(P.x, P.y, 0x7fffa0, 16, 120, 3, 0.5); sfx.item(); } });
+        this.startAct({ wind: 0.45, rec: 0.15, move: 0.3, flask: true, fire: () => { P.hp = Math.min(P.maxHp, P.hp + P.maxHp * P.flaskHeal); this.burst(P.x, P.y, 0x7fffa0, 16, 120, 3, 0.5); sfx.item(); } });
       }
     }
     // F：處決 > 篝火
